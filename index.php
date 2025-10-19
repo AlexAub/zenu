@@ -227,20 +227,40 @@ $user = getCurrentUser();
                 <p>Redimensionnez et convertissez vos images en JPG facilement. Qualité ajustable et aperçu en temps réel.</p>
             </a>
 
-            <!-- Outil 2 : Gestionnaire d'images (privé - à venir) -->
+            <!-- Outil 2 : Convertisseur privé avec sauvegarde -->
+            <?php if ($user): ?>
+                <a href="convertisseur-prive.php" class="tool-card">
+                    <span class="tool-badge premium">Premium</span>
+                    <div class="tool-icon">💾</div>
+                    <h2>Convertisseur Privé</h2>
+                    <p>Convertissez et sauvegardez vos images dans votre espace personnel. Accédez-y depuis n'importe où.</p>
+                </a>
+            <?php else: ?>
+                <div class="tool-card locked">
+                    <span class="lock-icon">🔒</span>
+                    <div class="tool-icon">💾</div>
+                    <h2>Convertisseur Privé</h2>
+                    <p>Convertissez et sauvegardez vos images dans votre espace personnel. Accédez-y depuis n'importe où.</p>
+                    <p style="margin-top: 15px; color: #667eea; font-weight: 600;">
+                        <a href="login.php" style="color: #667eea;">Connectez-vous</a> pour accéder
+                    </p>
+                </div>
+            <?php endif; ?>
+            
+            <!-- Outil 3 : Gestionnaire d'images -->
             <?php if ($user): ?>
                 <a href="dashboard.php" class="tool-card">
                     <span class="tool-badge premium">Premium</span>
                     <div class="tool-icon">📁</div>
-                    <h2>Gestionnaire d'Images</h2>
-                    <p>Sauvegardez et gérez vos images converties. Accédez-y depuis n'importe où.</p>
+                    <h2>Mes Images</h2>
+                    <p>Gérez toutes vos images sauvegardées. Voir, télécharger, copier les URLs et supprimer.</p>
                 </a>
             <?php else: ?>
                 <div class="tool-card locked">
                     <span class="lock-icon">🔒</span>
                     <div class="tool-icon">📁</div>
-                    <h2>Gestionnaire d'Images</h2>
-                    <p>Sauvegardez et gérez vos images converties. Accédez-y depuis n'importe où.</p>
+                    <h2>Mes Images</h2>
+                    <p>Gérez toutes vos images sauvegardées. Voir, télécharger, copier les URLs et supprimer.</p>
                     <p style="margin-top: 15px; color: #667eea; font-weight: 600;">
                         <a href="login.php" style="color: #667eea;">Connectez-vous</a> pour accéder
                     </p>
