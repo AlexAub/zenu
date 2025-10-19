@@ -40,7 +40,7 @@ function getCurrentUser() {
         return null;
     }
     
-    $stmt = $pdo->prepare("SELECT id, email, created_at FROM users WHERE id = ?");
+    $stmt = $pdo->prepare("SELECT id, username, email, created_at FROM users WHERE id = ?");
     $stmt->execute([$_SESSION['user_id']]);
     return $stmt->fetch();
 }

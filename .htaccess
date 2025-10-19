@@ -1,3 +1,4 @@
+
 # Configuration Apache pour Zenu
 
 # Définir index.php comme page par défaut
@@ -15,3 +16,9 @@ RewriteEngine On
 # Rediriger tout le trafic HTTP vers HTTPS
 RewriteCond %{HTTPS} off
 RewriteRule ^(.*)$ https://%{HTTP_HOST}%{REQUEST_URI} [L,R=301]
+
+# Réécriture pour les URLs d'images propres
+# /i/username/filename.jpg -> /i.php
+RewriteCond %{REQUEST_FILENAME} !-f
+RewriteCond %{REQUEST_FILENAME} !-d
+RewriteRule ^i/([a-zA-Z0-9_-]+)/([a-zA-Z0-9_.-]+)$ i.php [L,QSA]

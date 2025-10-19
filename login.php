@@ -1,5 +1,6 @@
 <?php
 require_once 'config.php';
+require_once 'security.php';
 
 // Si déjà connecté, rediriger
 if (isLoggedIn()) {
@@ -10,22 +11,44 @@ if (isLoggedIn()) {
 $error = '';
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
-    $email = trim($_POST['email'] ?? '');
-    $password = $_POST['password'] ?? '';
-    
-    if (empty($email) || empty($password)) {
-        $error = 'Veuillez remplir tous les champs';
+    // Vérifier le honeypot
+    if (checkHoneypot()) {
+        // C'est un bot, on fait semblant que tout va bien
+        sleep(2); // Ralentir le bot
+        $error = 'Email ou mot de passe incorrect';
     } else {
-        $stmt = $pdo->prepare("SELECT id, password FROM users WHERE email = ?");
-        $stmt->execute([$email]);
-        $user = $stmt->fetch();
-        
-        if ($user && password_verify($password, $user['password'])) {
-            $_SESSION['user_id'] = $user['id'];
-            header('Location: dashboard.php');
-            exit;
+        // Vérifier le rate limiting
+        $rateCheck = checkRateLimit($pdo, 'login', 5, 15);
+        if (!$rateCheck['allowed']) {
+            $error = $rateCheck['message'];
         } else {
-            $error = 'Email ou mot de passe incorrect';
+            $email = trim($_POST['email'] ?? '');
+            $password = $_POST['password'] ?? '';
+            
+            if (empty($email) || empty($password)) {
+                $error = 'Veuillez remplir tous les champs';
+            } else {
+                $stmt = $pdo->prepare("SELECT id, password FROM users WHERE email = ?");
+                $stmt->execute([$email]);
+                $user = $stmt->fetch();
+                
+                if ($user && password_verify($password, $user['password'])) {
+                    // Connexion réussie
+                    $_SESSION['user_id'] = $user['id'];
+                    
+                    // Réinitialiser le rate limit pour cette IP
+                    $ip = getClientIP();
+                    $stmt = $pdo->prepare("DELETE FROM rate_limits WHERE ip_address = ? AND action_type = 'login'");
+                    $stmt->execute([$ip]);
+                    
+                    header('Location: dashboard.php');
+                    exit;
+                } else {
+                    // Connexion échouée
+                    logFailedLogin($pdo, $email);
+                    $error = 'Email ou mot de passe incorrect';
+                }
+            }
         }
     }
 }
@@ -106,6 +129,14 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             border-color: #667eea;
         }
         
+        /* Honeypot - champ invisible */
+        .hp {
+            position: absolute;
+            left: -9999px;
+            width: 1px;
+            height: 1px;
+        }
+        
         .btn-submit {
             width: 100%;
             background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
@@ -166,6 +197,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         <?php endif; ?>
         
         <form method="POST" action="">
+            <!-- Honeypot -->
+            <input type="text" name="website" class="hp" tabindex="-1" autocomplete="off">
+            
             <div class="form-group">
                 <label for="email">Email</label>
                 <input type="email" id="email" name="email" required 

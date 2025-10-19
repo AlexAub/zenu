@@ -201,7 +201,7 @@ $user = getCurrentUser();
         <a href="index.php" class="logo">🧘 Zenu</a>
         <div class="nav-links">
             <?php if ($user): ?>
-                <span>Bonjour, <?= htmlspecialchars(explode('@', $user['email'])[0]) ?></span>
+                <span>Bonjour, <?= htmlspecialchars($user['username']) ?></span>
                 <a href="dashboard.php">Mon espace</a>
                 <form action="logout.php" method="POST" style="display: inline;">
                     <button type="submit" class="btn-logout">Déconnexion</button>

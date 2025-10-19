@@ -89,6 +89,10 @@ $user = getCurrentUser();
             top: 20px;
         }
         
+        .right-panel.hidden {
+            display: none;
+        }
+        
         .upload-zone {
             border: 2px dashed #667eea;
             border-radius: 8px;
@@ -476,6 +480,7 @@ $user = getCurrentUser();
         let originalHeight = 0;
         let isUpdating = false;
         let originalFileSize = 0;
+        let originalFileName = 'image'; // Nom sans extension
         
         const uploadZone = document.getElementById('uploadZone');
         const fileInput = document.getElementById('fileInput');
@@ -549,6 +554,7 @@ $user = getCurrentUser();
             // On accepte toutes les tailles au chargement
             // La vérification se fera à la sauvegarde
             originalFileSize = file.size;
+            originalFileName = file.name.replace(/\.[^/.]+$/, ""); // Garder le nom sans extension
             hideError();
             loadImage(file);
         }
@@ -663,8 +669,6 @@ $user = getCurrentUser();
             const width = parseInt(widthSlider.value);
             const height = parseInt(heightSlider.value);
             const quality = qualitySlider.value / 100;
-            const timestamp = Date.now();
-            const fileName = `image_${timestamp}`;
             
             const canvas = document.createElement('canvas');
             canvas.width = width;
@@ -686,10 +690,10 @@ $user = getCurrentUser();
                 }
                 
                 const formData = new FormData();
-                formData.append('image', blob, `${fileName}.jpg`);
+                formData.append('image', blob, `${originalFileName}.jpg`);
                 formData.append('width', width);
                 formData.append('height', height);
-                formData.append('original_filename', fileName);
+                formData.append('original_filename', originalFileName);
                 
                 try {
                     const response = await fetch('upload-image.php', {

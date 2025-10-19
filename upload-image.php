@@ -11,6 +11,18 @@ if (!isLoggedIn()) {
 
 $user_id = $_SESSION['user_id'];
 
+// Récupérer le username de l'utilisateur
+$stmt = $pdo->prepare("SELECT username FROM users WHERE id = ?");
+$stmt->execute([$user_id]);
+$user = $stmt->fetch();
+
+if (!$user) {
+    echo json_encode(['success' => false, 'error' => 'Utilisateur introuvable']);
+    exit;
+}
+
+$username = $user['username'];
+
 // Vérifier les quotas
 $stmt = $pdo->prepare("SELECT COUNT(*) as count, COALESCE(SUM(size), 0) as total_size FROM images WHERE user_id = ?");
 $stmt->execute([$user_id]);
@@ -29,8 +41,23 @@ if ($quotas['total_size'] >= 500 * 1024 * 1024) {
 }
 
 // Vérifier l'upload
-if (!isset($_FILES['image']) || $_FILES['image']['error'] !== UPLOAD_ERR_OK) {
-    echo json_encode(['success' => false, 'error' => 'Erreur lors de l\'upload']);
+if (!isset($_FILES['image'])) {
+    echo json_encode(['success' => false, 'error' => 'Aucun fichier reçu', 'debug' => 'FILES empty']);
+    exit;
+}
+
+if ($_FILES['image']['error'] !== UPLOAD_ERR_OK) {
+    $error_messages = [
+        UPLOAD_ERR_INI_SIZE => 'Fichier trop volumineux (php.ini)',
+        UPLOAD_ERR_FORM_SIZE => 'Fichier trop volumineux (form)',
+        UPLOAD_ERR_PARTIAL => 'Upload partiel',
+        UPLOAD_ERR_NO_FILE => 'Aucun fichier',
+        UPLOAD_ERR_NO_TMP_DIR => 'Dossier temp manquant',
+        UPLOAD_ERR_CANT_WRITE => 'Erreur écriture disque',
+        UPLOAD_ERR_EXTENSION => 'Extension PHP a stoppé l\'upload'
+    ];
+    $error_msg = $error_messages[$_FILES['image']['error']] ?? 'Erreur inconnue';
+    echo json_encode(['success' => false, 'error' => $error_msg, 'code' => $_FILES['image']['error']]);
     exit;
 }
 
@@ -63,8 +90,29 @@ if (!file_exists($user_dir)) {
     mkdir($user_dir, 0755, true);
 }
 
-// Générer un nom de fichier unique
-$filename = uniqid() . '_' . preg_replace('/[^a-zA-Z0-9_-]/', '', basename($file['name']));
+// Nettoyer le nom de fichier original
+$original_clean = preg_replace('/[^a-zA-Z0-9_-]/', '-', pathinfo($original_filename, PATHINFO_FILENAME));
+$original_clean = strtolower($original_clean);
+$original_clean = preg_replace('/-+/', '-', $original_clean); // Éviter les tirets multiples
+$original_clean = trim($original_clean, '-'); // Enlever les tirets au début/fin
+$original_clean = substr($original_clean, 0, 100); // Limiter la longueur
+
+if (empty($original_clean)) {
+    $original_clean = 'image';
+}
+
+// Vérifier si un fichier avec ce nom existe déjà pour cet utilisateur
+$stmt = $pdo->prepare("SELECT COUNT(*) FROM images WHERE user_id = ? AND filename LIKE ?");
+$stmt->execute([$user_id, $original_clean . '%']);
+$count = $stmt->fetchColumn();
+
+// Si le nom existe déjà, ajouter un numéro
+if ($count > 0) {
+    $filename = $original_clean . '-' . ($count + 1) . '.jpg';
+} else {
+    $filename = $original_clean . '.jpg';
+}
+
 $filepath = $user_dir . '/' . $filename;
 
 // Déplacer le fichier
@@ -90,8 +138,8 @@ try {
         $height
     ]);
     
-    // Construire l'URL complète
-    $url = SITE_URL . '/' . $filepath;
+    // Construire l'URL propre avec username
+    $url = SITE_URL . '/i/' . $username . '/' . $filename;
     
     echo json_encode([
         'success' => true,

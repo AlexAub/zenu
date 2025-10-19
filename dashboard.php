@@ -349,7 +349,7 @@ $used_space_percent = ($total_size / (500 * 1024 * 1024)) * 100;
 
     <div class="container">
         <div class="dashboard-header">
-            <h1>Bienvenue, <?= htmlspecialchars(explode('@', $user['email'])[0]) ?> 👋</h1>
+            <h1>Bienvenue, <?= htmlspecialchars($user['username']) ?> 👋</h1>
             <p class="user-email"><?= htmlspecialchars($user['email']) ?></p>
         </div>
 
@@ -397,7 +397,7 @@ $used_space_percent = ($total_size / (500 * 1024 * 1024)) * 100;
                     <?php foreach ($images as $image): ?>
                         <div class="image-card" data-image-id="<?= $image['id'] ?>">
                             <div class="image-preview">
-                                <img src="<?= htmlspecialchars($image['path']) ?>" 
+                                <img src="/i/<?= htmlspecialchars($user['username']) ?>/<?= htmlspecialchars($image['filename']) ?>" 
                                      alt="<?= htmlspecialchars($image['original_filename']) ?>"
                                      loading="lazy">
                             </div>
@@ -410,14 +410,14 @@ $used_space_percent = ($total_size / (500 * 1024 * 1024)) * 100;
                                     <?= number_format($image['size'] / 1024, 1) ?> KB<br>
                                     <?= date('d/m/Y H:i', strtotime($image['created_at'])) ?>
                                 </div>
-                                <div class="image-url" title="<?= SITE_URL . '/' . htmlspecialchars($image['path']) ?>">
-                                    <?= SITE_URL . '/' . htmlspecialchars($image['path']) ?>
+                                <div class="image-url" title="<?= SITE_URL ?>/i/<?= htmlspecialchars($user['username']) ?>/<?= htmlspecialchars($image['filename']) ?>">
+                                    <?= SITE_URL ?>/i/<?= htmlspecialchars($user['username']) ?>/<?= htmlspecialchars($image['filename']) ?>
                                 </div>
                                 <div class="image-actions">
-                                    <button class="btn-action btn-copy" onclick="copyUrl('<?= SITE_URL . '/' . htmlspecialchars($image['path']) ?>')">
+                                    <button class="btn-action btn-copy" onclick="copyUrl('<?= SITE_URL ?>/i/<?= htmlspecialchars($user['username']) ?>/<?= htmlspecialchars($image['filename']) ?>')">
                                         📋 Copier
                                     </button>
-                                    <a href="<?= htmlspecialchars($image['path']) ?>" 
+                                    <a href="/i/<?= htmlspecialchars($user['username']) ?>/<?= htmlspecialchars($image['filename']) ?>" 
                                        download="<?= htmlspecialchars($image['original_filename']) ?>.jpg"
                                        class="btn-action btn-download" style="text-decoration: none; text-align: center;">
                                         ⬇️ DL
