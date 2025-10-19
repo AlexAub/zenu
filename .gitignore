@@ -1,0 +1,43 @@
+# Fichiers de configuration sensibles
+config.php
+.env
+
+# Fichiers uploadés par les utilisateurs
+uploads/
+storage/
+
+# Fichiers temporaires
+*.tmp
+*.log
+*.cache
+
+# Fichiers système
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# IDE et éditeurs
+.vscode/
+.idea/
+*.sublime-project
+*.sublime-workspace
+
+# Dépendances (si tu utilises Composer plus tard)
+/vendor/
+composer.lock
+
+# Fichiers de backup
+*.bak
+*.backup
+*~
+
+# Fichiers de sessions PHP
+/sessions/
+
+# Node modules (si tu ajoutes du JavaScript plus tard)
+node_modules/
+package-lock.json
+
+# Fichiers de build
+/dist/
+/build/
