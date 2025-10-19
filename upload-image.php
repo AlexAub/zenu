@@ -39,9 +39,10 @@ $original_filename = $_POST['original_filename'] ?? 'image';
 $width = intval($_POST['width'] ?? 0);
 $height = intval($_POST['height'] ?? 0);
 
-// Vérifier la taille (2 MB max)
+// Vérifier la taille du fichier uploadé (2 MB max pour sauvegarde)
 if ($file['size'] > 2 * 1024 * 1024) {
-    echo json_encode(['success' => false, 'error' => 'Image trop volumineuse (2 MB max)']);
+    $sizeMB = round($file['size'] / (1024 * 1024), 2);
+    echo json_encode(['success' => false, 'error' => "Image trop volumineuse ({$sizeMB} MB). Maximum pour la sauvegarde : 2 MB"]);
     exit;
 }
 

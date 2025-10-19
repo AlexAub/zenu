@@ -1,20 +1,9 @@
-<?php
-require_once 'config.php';
-
-// Vérifier si l'utilisateur est connecté
-if (!isLoggedIn()) {
-    header('Location: login.php');
-    exit;
-}
-
-$user = getCurrentUser();
-?>
 <!DOCTYPE html>
 <html lang="fr">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Convertisseur Privé - Zenu</title>
+    <title>Convertisseur d'Images JPG</title>
     <style>
         * {
             margin: 0;
@@ -27,10 +16,10 @@ $user = getCurrentUser();
             background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
             min-height: 100vh;
             padding: 10px;
-            margin: 0;
             display: flex;
             justify-content: center;
             align-items: center;
+            margin: 0;
         }
         
         .container {
@@ -39,32 +28,11 @@ $user = getCurrentUser();
             padding: 15px;
             max-width: 1400px;
             width: 100%;
-            margin: 0 auto;
             box-shadow: 0 20px 60px rgba(0,0,0,0.3);
         }
         
         .container.welcome-mode {
             max-width: 550px;
-        }
-        
-        .header {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            margin-bottom: 15px;
-            padding-bottom: 15px;
-            border-bottom: 2px solid #f0f0f0;
-        }
-        
-        .header h1 {
-            color: #667eea;
-            font-size: 18px;
-        }
-        
-        .header a {
-            color: #667eea;
-            text-decoration: none;
-            font-size: 13px;
         }
         
         .main-content {
@@ -89,6 +57,10 @@ $user = getCurrentUser();
             top: 20px;
         }
         
+        .right-panel.hidden {
+            display: none;
+        }
+        
         .upload-zone {
             border: 2px dashed #667eea;
             border-radius: 8px;
@@ -102,20 +74,6 @@ $user = getCurrentUser();
         .upload-zone.welcome-mode {
             padding: 40px 25px;
             border-width: 3px;
-        }
-        
-        .upload-zone.welcome-mode .upload-icon {
-            font-size: 48px;
-            margin-bottom: 15px;
-        }
-        
-        .upload-zone.welcome-mode h3 {
-            font-size: 18px;
-            margin-bottom: 8px;
-        }
-        
-        .upload-zone.welcome-mode p {
-            font-size: 14px;
         }
         
         .upload-zone:hover {
@@ -133,14 +91,28 @@ $user = getCurrentUser();
             margin-bottom: 5px;
         }
         
+        .upload-zone.welcome-mode .upload-icon {
+            font-size: 48px;
+            margin-bottom: 15px;
+        }
+        
         .upload-zone h3 {
             font-size: 15px;
             margin-bottom: 3px;
         }
         
+        .upload-zone.welcome-mode h3 {
+            font-size: 18px;
+            margin-bottom: 8px;
+        }
+        
         .upload-zone p {
             font-size: 12px;
             margin: 0;
+        }
+        
+        .upload-zone.welcome-mode p {
+            font-size: 14px;
         }
         
         input[type="file"] {
@@ -168,6 +140,20 @@ $user = getCurrentUser();
             font-size: 13px;
         }
         
+        input[type="text"] {
+            width: 100%;
+            padding: 8px;
+            border: 2px solid #ddd;
+            border-radius: 6px;
+            font-size: 13px;
+            transition: border 0.3s;
+        }
+        
+        input[type="text"]:focus {
+            outline: none;
+            border-color: #667eea;
+        }
+        
         input[type="range"] {
             width: 100%;
             margin: 8px 0;
@@ -184,7 +170,7 @@ $user = getCurrentUser();
             background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
             color: white;
             border: none;
-            padding: 10px 20px;
+            padding: 10px 25px;
             border-radius: 8px;
             font-size: 14px;
             font-weight: 600;
@@ -194,18 +180,13 @@ $user = getCurrentUser();
             margin-top: 10px;
         }
         
-        button:hover:not(:disabled) {
+        button:hover {
             transform: translateY(-2px);
             box-shadow: 0 10px 25px rgba(102, 126, 234, 0.4);
         }
         
         button:active {
             transform: translateY(0);
-        }
-        
-        button:disabled {
-            opacity: 0.5;
-            cursor: not-allowed;
         }
         
         .live-preview {
@@ -252,77 +233,14 @@ $user = getCurrentUser();
         }
         
         .info {
-            margin-top: 8px;
-            padding: 10px;
+            margin-top: 4px;
+            padding: 6px;
             background: #e8f5e9;
-            border-radius: 6px;
+            border-radius: 4px;
             color: #2e7d32;
             font-size: 11px;
             font-weight: 600;
             flex-shrink: 0;
-            display: none;
-            text-align: left;
-        }
-        
-        .info.active {
-            display: block;
-        }
-        
-        .url-container {
-            margin-top: 8px;
-            padding: 8px;
-            background: #fff3e0;
-            border-radius: 6px;
-            border: 1px solid #ff9800;
-        }
-        
-        .url-container strong {
-            color: #e65100;
-            display: block;
-            margin-bottom: 5px;
-            font-size: 11px;
-        }
-        
-        .url-input-group {
-            display: flex;
-            gap: 5px;
-        }
-        
-        .url-container input {
-            flex: 1;
-            padding: 6px;
-            border: 1px solid #ddd;
-            border-radius: 4px;
-            font-size: 11px;
-            min-width: 0;
-        }
-        
-        .btn-copy-url {
-            background: #ff9800;
-            padding: 6px 12px;
-            font-size: 11px;
-            margin: 0;
-            width: auto;
-            white-space: nowrap;
-        }
-        
-        .quota-info {
-            background: #e3f2fd;
-            padding: 10px;
-            border-radius: 6px;
-            font-size: 12px;
-            color: #1565c0;
-            margin-top: 10px;
-        }
-        
-        .error {
-            background: #ffebee;
-            color: #c62828;
-            padding: 10px;
-            border-radius: 6px;
-            font-size: 12px;
-            margin-top: 10px;
-            display: none;
         }
         
         .features {
@@ -381,39 +299,18 @@ $user = getCurrentUser();
                 grid-template-columns: 1fr;
             }
         }
-        
-        @media (max-width: 600px) {
-            .header {
-                flex-direction: column;
-                align-items: flex-start;
-                gap: 10px;
-            }
-            
-            .header h1 {
-                font-size: 16px;
-            }
-            
-            .features ul {
-                grid-template-columns: 1fr;
-            }
-        }
     </style>
 </head>
 <body>
-    <div class="container" id="container">
-        <div class="header">
-            <h1>🔒 Convertisseur Privé - Sauvegarde Cloud</h1>
-            <a href="dashboard.php">← Mes images</a>
-        </div>
-        
-        <div class="main-content" id="mainContent">
+    <div class="container welcome-mode" id="container">
+        <div class="main-content welcome-mode" id="mainContent">
             <div class="left-panel">
-                <div class="upload-zone" id="uploadZone">
+                <div class="upload-zone welcome-mode" id="uploadZone">
                     <div class="upload-icon">📁</div>
                     <h3>Glissez votre image ici</h3>
                     <p>ou cliquez pour sélectionner</p>
                     <p style="margin-top: 10px; color: #888;">
-                        PNG, JPG, WebP, GIF, BMP (taille illimitée)
+                        Formats acceptés : PNG, JPG, WebP, GIF, BMP
                     </p>
                 </div>
                 
@@ -433,30 +330,32 @@ $user = getCurrentUser();
                     </div>
                     
                     <div class="control-group">
-                        <label>✨ Qualité : <span class="dimension-label" id="qualityValue">100%</span></label>
-                        <input type="range" id="qualitySlider" min="1" max="100" value="100">
+                        <label>✨ Qualité JPG : <span class="dimension-label" id="qualityValue">100%</span></label>
+                        <input type="range" class="quality-slider" id="qualitySlider" min="1" max="100" value="100">
                     </div>
                     
-                    <button id="saveBtn">💾 Sauvegarder sur le cloud</button>
+                    <div class="control-group">
+                        <label>📝 Nom du fichier :</label>
+                        <input type="text" id="fileNameInput" placeholder="nom-image">
+                    </div>
                     
-                    <div id="quotaInfo" class="quota-info"></div>
-                    <div id="errorMsg" class="error"></div>
+                    <button id="convertBtn">⬇️ Télécharger en JPG</button>
                 </div>
                 
                 <div class="features" id="featuresSection">
-                    <h4>Convertisseur d'Images Cloud</h4>
+                    <h4>Convertisseur d'Images JPG</h4>
                     <ul>
-                        <li><span>💾</span><div>Sauvegarde automatique sur le cloud</div></li>
-                        <li><span>🔗</span><div>URL directe générée</div></li>
-                        <li><span>🌍</span><div>Accessible partout</div></li>
-                        <li><span>📊</span><div>500 images · 500 MB max</div></li>
+                        <li><span>📏</span><div>Redimensionnement précis</div></li>
+                        <li><span>✨</span><div>Qualité ajustable</div></li>
                         <li><span>⚡</span><div>Aperçu temps réel</div></li>
-                        <li><span>🎯</span><div>Max 2 MB par image</div></li>
+                        <li><span>🔒</span><div>100% local et sécurisé</div></li>
+                        <li><span>🚀</span><div>Aucun upload serveur</div></li>
+                        <li><span>🆓</span><div>Gratuit et illimité</div></li>
                     </ul>
                 </div>
             </div>
             
-            <div class="right-panel">
+            <div class="right-panel hidden" id="rightPanel">
                 <div class="live-preview" id="livePreview">
                     <div class="live-preview-header">
                         Aperçu · <span class="dimension-label" id="liveSize">0 × 0</span>
@@ -464,7 +363,7 @@ $user = getCurrentUser();
                     <div class="preview-container">
                         <img id="livePreviewImg" alt="Aperçu">
                     </div>
-                    <div class="info" id="info"></div>
+                    <div class="info" id="info" style="display: none;"></div>
                 </div>
             </div>
         </div>
@@ -475,7 +374,7 @@ $user = getCurrentUser();
         let originalWidth = 0;
         let originalHeight = 0;
         let isUpdating = false;
-        let originalFileSize = 0;
+        let originalFileName = 'image';
         
         const uploadZone = document.getElementById('uploadZone');
         const fileInput = document.getElementById('fileInput');
@@ -490,33 +389,13 @@ $user = getCurrentUser();
         const maintainAspect = document.getElementById('maintainAspect');
         const qualitySlider = document.getElementById('qualitySlider');
         const qualityValue = document.getElementById('qualityValue');
-        const saveBtn = document.getElementById('saveBtn');
+        const convertBtn = document.getElementById('convertBtn');
         const info = document.getElementById('info');
-        const quotaInfo = document.getElementById('quotaInfo');
-        const errorMsg = document.getElementById('errorMsg');
+        const fileNameInput = document.getElementById('fileNameInput');
         const container = document.getElementById('container');
         const mainContent = document.getElementById('mainContent');
+        const rightPanel = document.getElementById('rightPanel');
         const featuresSection = document.getElementById('featuresSection');
-        
-        // Mode welcome par défaut
-        container.classList.add('welcome-mode');
-        mainContent.classList.add('welcome-mode');
-        uploadZone.classList.add('welcome-mode');
-        
-        loadQuotas();
-        
-        async function loadQuotas() {
-            try {
-                const response = await fetch('get-quotas.php');
-                const data = await response.json();
-                quotaInfo.innerHTML = `
-                    📊 <strong>${data.used_space}</strong> / 500 MB · 
-                    📁 <strong>${data.image_count}</strong> / 500 images
-                `;
-            } catch(e) {
-                console.error('Erreur chargement quotas:', e);
-            }
-        }
         
         uploadZone.addEventListener('click', () => fileInput.click());
         
@@ -534,24 +413,20 @@ $user = getCurrentUser();
             uploadZone.classList.remove('dragover');
             const file = e.dataTransfer.files[0];
             if (file && file.type.startsWith('image/')) {
-                handleFile(file);
+                originalFileName = file.name.replace(/\.[^/.]+$/, "");
+                fileNameInput.value = originalFileName;
+                loadImage(file);
             }
         });
         
         fileInput.addEventListener('change', (e) => {
             const file = e.target.files[0];
             if (file) {
-                handleFile(file);
+                originalFileName = file.name.replace(/\.[^/.]+$/, "");
+                fileNameInput.value = originalFileName;
+                loadImage(file);
             }
         });
-        
-        function handleFile(file) {
-            // On accepte toutes les tailles au chargement
-            // La vérification se fera à la sauvegarde
-            originalFileSize = file.size;
-            hideError();
-            loadImage(file);
-        }
         
         function loadImage(file) {
             const reader = new FileReader();
@@ -572,7 +447,7 @@ $user = getCurrentUser();
                     mainContent.classList.remove('welcome-mode');
                     uploadZone.classList.remove('welcome-mode');
                     featuresSection.style.display = 'none';
-                    
+                    rightPanel.classList.remove('hidden');
                     controls.classList.add('active');
                     livePreview.classList.add('active');
                     
@@ -602,7 +477,7 @@ $user = getCurrentUser();
             ctx.imageSmoothingQuality = 'high';
             ctx.drawImage(originalImage, 0, 0, width, height);
             
-            livePreviewImg.src = canvas.toDataURL('image/jpeg', qualitySlider.value / 100);
+            livePreviewImg.src = canvas.toDataURL('image/jpeg', 0.92);
         }
         
         widthSlider.addEventListener('input', () => {
@@ -627,7 +502,6 @@ $user = getCurrentUser();
         
         qualitySlider.addEventListener('input', () => {
             qualityValue.textContent = qualitySlider.value + '%';
-            updatePreview();
         });
         
         livePreviewImg.addEventListener('click', () => {
@@ -652,19 +526,13 @@ $user = getCurrentUser();
             }, 'image/jpeg', quality);
         });
         
-        saveBtn.addEventListener('click', async () => {
+        convertBtn.addEventListener('click', () => {
             if (!originalImage) return;
-            
-            saveBtn.disabled = true;
-            saveBtn.textContent = '⏳ Sauvegarde...';
-            hideError();
-            info.classList.remove('active');
             
             const width = parseInt(widthSlider.value);
             const height = parseInt(heightSlider.value);
             const quality = qualitySlider.value / 100;
-            const timestamp = Date.now();
-            const fileName = `image_${timestamp}`;
+            const fileName = fileNameInput.value.trim() || 'image';
             
             const canvas = document.createElement('canvas');
             canvas.width = width;
@@ -675,77 +543,26 @@ $user = getCurrentUser();
             ctx.imageSmoothingQuality = 'high';
             ctx.drawImage(originalImage, 0, 0, width, height);
             
-            canvas.toBlob(async (blob) => {
-                // Vérifier la taille du blob final (2MB max pour sauvegarde)
-                if (blob.size > 2 * 1024 * 1024) {
-                    const sizeMB = (blob.size / (1024 * 1024)).toFixed(2);
-                    showError(`Image convertie trop volumineuse (${sizeMB} MB). La sauvegarde est limitée à 2 MB. Réduisez la qualité ou les dimensions.`);
-                    saveBtn.disabled = false;
-                    saveBtn.textContent = '💾 Sauvegarder sur le cloud';
-                    return;
-                }
+            canvas.toBlob((blob) => {
+                const url = URL.createObjectURL(blob);
+                const size = (blob.size / 1024).toFixed(2);
                 
-                const formData = new FormData();
-                formData.append('image', blob, `${fileName}.jpg`);
-                formData.append('width', width);
-                formData.append('height', height);
-                formData.append('original_filename', fileName);
+                const a = document.createElement('a');
+                a.href = url;
+                a.download = `${fileName}.jpg`;
+                document.body.appendChild(a);
+                a.click();
+                document.body.removeChild(a);
+                URL.revokeObjectURL(url);
                 
-                try {
-                    const response = await fetch('upload-image.php', {
-                        method: 'POST',
-                        body: formData
-                    });
-                    
-                    const result = await response.json();
-                    
-                    if (result.success) {
-                        const size = (blob.size / 1024).toFixed(2);
-                        info.innerHTML = `
-                            ✅ <strong>Image sauvegardée !</strong><br>
-                            ${width} × ${height} px · ${size} KB
-                            <div class="url-container">
-                                <strong>🔗 URL de votre image :</strong>
-                                <div class="url-input-group">
-                                    <input type="text" id="imageUrl" value="${result.url}" readonly onclick="this.select()">
-                                    <button class="btn-copy-url" onclick="copyUrl()">📋 Copier</button>
-                                </div>
-                            </div>
-                        `;
-                        info.classList.add('active');
-                        loadQuotas();
-                    } else {
-                        showError(result.error || 'Erreur lors de la sauvegarde');
-                    }
-                } catch(e) {
-                    showError('Erreur réseau : ' + e.message);
-                }
+                info.style.display = 'block';
+                info.textContent = `✅ Téléchargé ! ${width} × ${height} px · ${size} KB`;
                 
-                saveBtn.disabled = false;
-                saveBtn.textContent = '💾 Sauvegarder sur le cloud';
+                setTimeout(() => {
+                    info.style.display = 'none';
+                }, 3000);
             }, 'image/jpeg', quality);
         });
-        
-        function copyUrl() {
-            const urlInput = document.getElementById('imageUrl');
-            urlInput.select();
-            
-            navigator.clipboard.writeText(urlInput.value).then(() => {
-                alert('✅ URL copiée !');
-            }).catch(() => {
-                document.execCommand('copy');
-                alert('✅ URL copiée !');
-            });
-        }
-        
-        function showError(message) {
-            errorMsg.textContent = '❌ ' + message;
-            errorMsg.style.display = 'block';
-        }
-        
-        function hideError() {
-            errorMsg.style.display = 'none';
-        }
     </script>
 </body>
 </html>

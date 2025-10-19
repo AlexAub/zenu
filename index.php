@@ -220,7 +220,7 @@ $user = getCurrentUser();
 
         <div class="tools-grid">
             <!-- Outil 1 : Convertisseur d'images (public) -->
-            <a href="convertisseur.html" class="tool-card">
+            <a href="convertisseur.php" class="tool-card">
                 <span class="tool-badge">Gratuit</span>
                 <div class="tool-icon">🖼️</div>
                 <h2>Convertisseur d'Images</h2>
