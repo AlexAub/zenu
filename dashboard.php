@@ -249,6 +249,12 @@ $used_space_percent = ($total_size / (500 * 1024 * 1024)) * 100;
             align-items: center;
             justify-content: center;
             overflow: hidden;
+            cursor: pointer;
+            transition: opacity 0.2s;
+        }
+        
+        .image-preview:hover {
+            opacity: 0.9;
         }
         
         .image-preview img {
@@ -269,6 +275,25 @@ $used_space_percent = ($total_size / (500 * 1024 * 1024)) * 100;
             white-space: nowrap;
             overflow: hidden;
             text-overflow: ellipsis;
+            cursor: pointer;
+            transition: color 0.2s;
+            display: flex;
+            align-items: center;
+            gap: 5px;
+        }
+        
+        .image-name:hover {
+            color: #667eea;
+        }
+        
+        .image-name:hover .edit-icon {
+            opacity: 1;
+        }
+        
+        .edit-icon {
+            opacity: 0.5;
+            font-size: 12px;
+            transition: opacity 0.2s;
         }
         
         .image-meta {
@@ -322,6 +347,20 @@ $used_space_percent = ($total_size / (500 * 1024 * 1024)) * 100;
         .btn-delete {
             background: #f44336;
             color: white;
+        }
+        
+        .btn-rename {
+            background: #ff9800;
+            color: white;
+        }
+        
+        .rename-input {
+            width: 100%;
+            padding: 6px;
+            border: 2px solid #667eea;
+            border-radius: 4px;
+            font-size: 13px;
+            margin-bottom: 8px;
         }
         
         @media (max-width: 768px) {
@@ -396,14 +435,19 @@ $used_space_percent = ($total_size / (500 * 1024 * 1024)) * 100;
                 <div class="images-grid">
                     <?php foreach ($images as $image): ?>
                         <div class="image-card" data-image-id="<?= $image['id'] ?>">
-                            <div class="image-preview">
+                            <div class="image-preview" onclick="openImage('<?= htmlspecialchars($user['username']) ?>', '<?= htmlspecialchars($image['filename']) ?>')">
                                 <img src="/i/<?= htmlspecialchars($user['username']) ?>/<?= htmlspecialchars($image['filename']) ?>" 
                                      alt="<?= htmlspecialchars($image['original_filename']) ?>"
                                      loading="lazy">
                             </div>
                             <div class="image-info">
-                                <div class="image-name" title="<?= htmlspecialchars($image['original_filename']) ?>">
-                                    <?= htmlspecialchars($image['original_filename']) ?>
+                                <div class="image-name" 
+                                     data-image-id="<?= $image['id'] ?>"
+                                     data-original-name="<?= htmlspecialchars($image['original_filename']) ?>"
+                                     onclick="startRename(<?= $image['id'] ?>)"
+                                     title="Cliquer pour renommer">
+                                    <span style="overflow: hidden; text-overflow: ellipsis;"><?= htmlspecialchars($image['original_filename']) ?></span>
+                                    <span class="edit-icon">✏️</span>
                                 </div>
                                 <div class="image-meta">
                                     <?= $image['width'] ?> × <?= $image['height'] ?> px · 
@@ -435,6 +479,83 @@ $used_space_percent = ($total_size / (500 * 1024 * 1024)) * 100;
     </div>
 
     <script>
+        function openImage(username, filename) {
+            window.open('/i/' + username + '/' + filename, '_blank');
+        }
+        
+        function startRename(imageId) {
+            const nameDiv = document.querySelector(`.image-name[data-image-id="${imageId}"]`);
+            const originalName = nameDiv.getAttribute('data-original-name');
+            
+            // Créer un input pour renommer
+            const input = document.createElement('input');
+            input.type = 'text';
+            input.className = 'rename-input';
+            input.value = originalName;
+            input.onblur = () => finishRename(imageId, input.value);
+            input.onkeypress = (e) => {
+                if (e.key === 'Enter') {
+                    finishRename(imageId, input.value);
+                } else if (e.key === 'Escape') {
+                    nameDiv.style.display = 'block';
+                    input.remove();
+                }
+            };
+            
+            nameDiv.style.display = 'none';
+            nameDiv.parentElement.insertBefore(input, nameDiv);
+            input.focus();
+            input.select();
+        }
+        
+        async function finishRename(imageId, newName) {
+            const nameDiv = document.querySelector(`.image-name[data-image-id="${imageId}"]`);
+            const input = nameDiv.previousElementSibling;
+            
+            if (!newName || newName.trim() === '') {
+                nameDiv.style.display = 'block';
+                input.remove();
+                return;
+            }
+            
+            try {
+                const formData = new FormData();
+                formData.append('image_id', imageId);
+                formData.append('new_name', newName.trim());
+                
+                const response = await fetch('rename-image.php', {
+                    method: 'POST',
+                    body: formData
+                });
+                
+                const result = await response.json();
+                
+                if (result.success) {
+                    const cleanName = result.new_filename.replace('.jpg', '');
+                    nameDiv.innerHTML = `<span style="overflow: hidden; text-overflow: ellipsis;">${cleanName}</span><span class="edit-icon">✏️</span>`;
+                    nameDiv.setAttribute('data-original-name', cleanName);
+                    nameDiv.setAttribute('title', 'Cliquer pour renommer');
+                    
+                    // Mettre à jour l'URL affichée
+                    const card = document.querySelector(`[data-image-id="${imageId}"]`);
+                    const urlDiv = card.querySelector('.image-url');
+                    if (urlDiv) {
+                        urlDiv.textContent = result.new_url;
+                        urlDiv.setAttribute('title', result.new_url);
+                    }
+                    
+                    alert('✅ Image renommée !');
+                } else {
+                    alert('❌ Erreur : ' + result.error);
+                }
+            } catch (e) {
+                alert('❌ Erreur réseau');
+            }
+            
+            nameDiv.style.display = 'block';
+            input.remove();
+        }
+        
         function copyUrl(url) {
             navigator.clipboard.writeText(url).then(() => {
                 alert('✅ URL copiée dans le presse-papiers !');
