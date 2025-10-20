@@ -1,6 +1,7 @@
 <?php
 require_once 'config.php';
 require_once 'security.php';
+require_once 'email-config.php';
 
 // Si déjà connecté, rediriger
 if (isLoggedIn()) {
@@ -13,72 +14,99 @@ $success = '';
 $fieldErrors = [];
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
-    // Vérifier le honeypot (anti-bot)
+    // Vérifier le honeypot
     if (checkHoneypot()) {
-        // C'est un bot, on fait semblant que tout va bien mais on ne crée pas le compte
-        $success = 'Compte créé avec succès ! Vous pouvez maintenant vous connecter.';
+        sleep(2);
+        $error = 'Email ou mot de passe incorrect';
     } else {
-        // Vérifier le rate limiting
-        $rateCheck = checkRateLimit($pdo, 'register', 3, 60);
-        if (!$rateCheck['allowed']) {
-            $error = $rateCheck['message'];
+        // Vérifier le reCAPTCHA
+        $recaptchaToken = $_POST['recaptcha_token'] ?? '';
+        $recaptchaResult = verifyRecaptcha($recaptchaToken);
+        
+        if (!$recaptchaResult['success'] || $recaptchaResult['score'] < RECAPTCHA_MIN_SCORE) {
+            $error = 'Vérification de sécurité échouée. Veuillez réessayer.';
+            logSecurityAction(null, 'register_recaptcha_failed', 'Score: ' . $recaptchaResult['score']);
         } else {
-            $username = trim($_POST['username'] ?? '');
-            $email = trim($_POST['email'] ?? '');
-            $password = $_POST['password'] ?? '';
-            $confirm_password = $_POST['confirm_password'] ?? '';
-            
-            // Validation
-            if (empty($username) || empty($email) || empty($password) || empty($confirm_password)) {
-                $error = 'Veuillez remplir tous les champs';
+            // Vérifier le rate limiting
+            $rateCheck = checkRateLimit($pdo, 'register', 3, 60);
+            if (!$rateCheck['allowed']) {
+                $error = $rateCheck['message'];
             } else {
-                // Valider le username
-                $usernameErrors = validateUsername($username);
-                if (!empty($usernameErrors)) {
-                    $fieldErrors['username'] = $usernameErrors;
-                }
+                $username = trim($_POST['username'] ?? '');
+                $email = trim($_POST['email'] ?? '');
+                $password = $_POST['password'] ?? '';
+                $confirm_password = $_POST['confirm_password'] ?? '';
                 
-                // Valider l'email
-                if (!filter_var($email, FILTER_VALIDATE_EMAIL)) {
-                    $fieldErrors['email'] = ['Email invalide'];
-                }
-                
-                // Valider le mot de passe
-                $passwordErrors = validatePassword($password);
-                if (!empty($passwordErrors)) {
-                    $fieldErrors['password'] = $passwordErrors;
-                }
-                
-                if ($password !== $confirm_password) {
-                    $fieldErrors['confirm_password'] = ['Les mots de passe ne correspondent pas'];
-                }
-                
-                if (empty($fieldErrors)) {
-                    // Vérifier si le username existe déjà
-                    $stmt = $pdo->prepare("SELECT id FROM users WHERE username = ?");
-                    $stmt->execute([sanitizeUsername($username)]);
-                    if ($stmt->fetch()) {
-                        $fieldErrors['username'] = ['Ce nom d\'utilisateur est déjà pris'];
+                // Validation
+                if (empty($username) || empty($email) || empty($password) || empty($confirm_password)) {
+                    $error = 'Veuillez remplir tous les champs';
+                } else {
+                    // Valider le username
+                    $usernameErrors = validateUsername($username);
+                    if (!empty($usernameErrors)) {
+                        $fieldErrors['username'] = $usernameErrors;
                     }
                     
-                    // Vérifier si l'email existe déjà
-                    $stmt = $pdo->prepare("SELECT id FROM users WHERE email = ?");
-                    $stmt->execute([$email]);
-                    if ($stmt->fetch()) {
-                        $fieldErrors['email'] = ['Cet email est déjà utilisé'];
+                    // Valider l'email
+                    if (!filter_var($email, FILTER_VALIDATE_EMAIL)) {
+                        $fieldErrors['email'] = ['Email invalide'];
+                    }
+                    
+                    // Valider le mot de passe
+                    $passwordErrors = validatePassword($password);
+                    if (!empty($passwordErrors)) {
+                        $fieldErrors['password'] = $passwordErrors;
+                    }
+                    
+                    if ($password !== $confirm_password) {
+                        $fieldErrors['confirm_password'] = ['Les mots de passe ne correspondent pas'];
                     }
                     
                     if (empty($fieldErrors)) {
-                        // Créer l'utilisateur
-                        $hashed_password = password_hash($password, PASSWORD_DEFAULT);
-                        $clean_username = sanitizeUsername($username);
+                        // Vérifier si le username existe déjà
+                        $stmt = $pdo->prepare("SELECT id FROM users WHERE username = ?");
+                        $stmt->execute([sanitizeUsername($username)]);
+                        if ($stmt->fetch()) {
+                            $fieldErrors['username'] = ['Ce nom d\'utilisateur est déjà pris'];
+                        }
                         
-                        $stmt = $pdo->prepare("INSERT INTO users (username, email, password) VALUES (?, ?, ?)");
+                        // Vérifier si l'email existe déjà
+                        $stmt = $pdo->prepare("SELECT id FROM users WHERE email = ?");
+                        $stmt->execute([$email]);
+                        if ($stmt->fetch()) {
+                            $fieldErrors['email'] = ['Cet email est déjà utilisé'];
+                        }
                         
-                        if ($stmt->execute([$clean_username, $email, $hashed_password])) {
-                            $success = 'Compte créé avec succès ! Vous pouvez maintenant vous connecter.';
-                        } else {
-                            $error = 'Une erreur est survenue lors de la création du compte';
+                        if (empty($fieldErrors)) {
+                            // Créer l'utilisateur
+                            $hashed_password = password_hash($password, PASSWORD_DEFAULT);
+                            $clean_username = sanitizeUsername($username);
+                            
+                            // Générer un token de vérification
+                            $verification_token = bin2hex(random_bytes(32));
+                            $token_expires = date('Y-m-d H:i:s', strtotime('+24 hours'));
+                            
+                            $stmt = $pdo->prepare("
+                                INSERT INTO users (username, email, password, verification_token, verification_token_expires) 
+                                VALUES (?, ?, ?, ?, ?)
+                            ");
+                            
+                            if ($stmt->execute([$clean_username, $email, $hashed_password, $verification_token, $token_expires])) {
+                                $userId = $pdo->lastInsertId();
+                                
+                                // Envoyer l'email de vérification
+                                $emailSent = sendVerificationEmail($email, $clean_username, $verification_token);
+                                
+                                if ($emailSent) {
+                                    $success = 'Compte créé avec succès ! Un email de vérification a été envoyé à ' . htmlspecialchars($email) . '. Veuillez vérifier votre boîte mail.';
+                                    logSecurityAction($userId, 'register_success', 'Email: ' . $email);
+                                } else {
+                                    $success = 'Compte créé avec succès ! Cependant, l\'email de vérification n\'a pas pu être envoyé. Contactez le support.';
+                                    logSecurityAction($userId, 'register_email_failed', 'Email: ' . $email);
+                                }
+                            } else {
+                                $error = 'Une erreur est survenue lors de la création du compte';
+                            }
                         }
                     }
                 }
@@ -93,6 +121,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Inscription - Zenu</title>
+    <script src="https://www.google.com/recaptcha/api.js?render=<?= RECAPTCHA_SITE_KEY ?>"></script>
     <style>
         * {
             margin: 0;
@@ -169,7 +198,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             border-color: #f44336;
         }
         
-        /* Honeypot - champ invisible pour les bots */
         .hp {
             position: absolute;
             left: -9999px;
@@ -192,6 +220,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         
         .btn-submit:hover {
             transform: translateY(-2px);
+        }
+        
+        .btn-submit:disabled {
+            opacity: 0.6;
+            cursor: not-allowed;
         }
         
         .error {
@@ -255,6 +288,17 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         .password-requirements ul {
             margin: 5px 0 0 20px;
         }
+        
+        .recaptcha-notice {
+            font-size: 11px;
+            color: #999;
+            text-align: center;
+            margin-top: 15px;
+        }
+        
+        .recaptcha-notice a {
+            color: #667eea;
+        }
     </style>
 </head>
 <body>
@@ -269,13 +313,13 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         <?php endif; ?>
         
         <?php if ($success): ?>
-            <div class="success"><?= htmlspecialchars($success) ?></div>
+            <div class="success"><?= $success ?></div>
         <?php endif; ?>
         
         <?php if (!$success): ?>
-        <form method="POST" action="">
-            <!-- Honeypot - champ invisible pour piéger les bots -->
+        <form method="POST" action="" id="registerForm">
             <input type="text" name="website" class="hp" tabindex="-1" autocomplete="off">
+            <input type="hidden" name="recaptcha_token" id="recaptchaToken">
             
             <div class="form-group">
                 <label for="username">Nom d'utilisateur</label>
@@ -362,7 +406,13 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 <?php endif; ?>
             </div>
             
-            <button type="submit" class="btn-submit">S'inscrire</button>
+            <button type="submit" class="btn-submit" id="submitBtn">S'inscrire</button>
+            
+            <div class="recaptcha-notice">
+                Ce site est protégé par reCAPTCHA et les 
+                <a href="https://policies.google.com/privacy" target="_blank">Règles de confidentialité</a> et 
+                <a href="https://policies.google.com/terms" target="_blank">Conditions d'utilisation</a> de Google s'appliquent.
+            </div>
         </form>
         
         <div class="divider">ou</div>
@@ -373,5 +423,25 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             <p style="margin-top: 15px;"><a href="index.php">← Retour à l'accueil</a></p>
         </div>
     </div>
+    
+    <script>
+        // Configuration reCAPTCHA v3
+        const form = document.getElementById('registerForm');
+        const submitBtn = document.getElementById('submitBtn');
+        
+        form.addEventListener('submit', function(e) {
+            e.preventDefault();
+            
+            submitBtn.disabled = true;
+            submitBtn.textContent = 'Vérification...';
+            
+            grecaptcha.ready(function() {
+                grecaptcha.execute('<?= RECAPTCHA_SITE_KEY ?>', {action: 'register'}).then(function(token) {
+                    document.getElementById('recaptchaToken').value = token;
+                    form.submit();
+                });
+            });
+        });
+    </script>
 </body>
 </html>

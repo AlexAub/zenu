@@ -1,6 +1,7 @@
 <?php
 require_once 'config.php';
 require_once 'security.php';
+require_once 'email-config.php';
 
 // Si déjà connecté, rediriger
 if (isLoggedIn()) {
@@ -9,12 +10,12 @@ if (isLoggedIn()) {
 }
 
 $error = '';
+$warning = '';
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     // Vérifier le honeypot
     if (checkHoneypot()) {
-        // C'est un bot, on fait semblant que tout va bien
-        sleep(2); // Ralentir le bot
+        sleep(2);
         $error = 'Email ou mot de passe incorrect';
     } else {
         // Vérifier le rate limiting
@@ -28,24 +29,36 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             if (empty($email) || empty($password)) {
                 $error = 'Veuillez remplir tous les champs';
             } else {
-                $stmt = $pdo->prepare("SELECT id, password FROM users WHERE email = ?");
+                $stmt = $pdo->prepare("SELECT id, password, email_verified, username FROM users WHERE email = ?");
                 $stmt->execute([$email]);
                 $user = $stmt->fetch();
                 
                 if ($user && password_verify($password, $user['password'])) {
-                    // Connexion réussie
-                    $_SESSION['user_id'] = $user['id'];
-                    
-                    // Réinitialiser le rate limit pour cette IP
-                    $ip = getClientIP();
-                    $stmt = $pdo->prepare("DELETE FROM rate_limits WHERE ip_address = ? AND action_type = 'login'");
-                    $stmt->execute([$ip]);
-                    
-                    header('Location: dashboard.php');
-                    exit;
+                    // Vérifier si l'email est vérifié
+                    if (!$user['email_verified']) {
+                        $warning = 'Votre email n\'est pas encore vérifié. Veuillez vérifier votre boîte mail ou <a href="resend-verification.php" style="color: #e65100; text-decoration: underline;">renvoyer l\'email de vérification</a>.';
+                        logSecurityAction($user['id'], 'login_attempt_unverified', 'Email: ' . $email);
+                    } else {
+                        // Connexion réussie
+                        $_SESSION['user_id'] = $user['id'];
+                        
+                        // Réinitialiser le rate limit pour cette IP
+                        $ip = getClientIP();
+                        $stmt = $pdo->prepare("DELETE FROM rate_limits WHERE ip_address = ? AND action_type = 'login'");
+                        $stmt->execute([$ip]);
+                        
+                        // Logger la connexion
+                        logSecurityAction($user['id'], 'login_success', 'Email: ' . $email);
+                        
+                        header('Location: dashboard.php');
+                        exit;
+                    }
                 } else {
                     // Connexion échouée
-                    logFailedLogin($pdo, $email);
+                    if ($user) {
+                        logFailedLogin($pdo, $email);
+                        logSecurityAction($user['id'], 'login_failed', 'Wrong password');
+                    }
                     $error = 'Email ou mot de passe incorrect';
                 }
             }
@@ -129,7 +142,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             border-color: #667eea;
         }
         
-        /* Honeypot - champ invisible */
         .hp {
             position: absolute;
             left: -9999px;
@@ -163,6 +175,20 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             font-size: 14px;
         }
         
+        .warning {
+            background: #fff3e0;
+            color: #e65100;
+            padding: 10px;
+            border-radius: 6px;
+            margin-bottom: 20px;
+            font-size: 14px;
+            line-height: 1.5;
+        }
+        
+        .warning a {
+            color: #e65100;
+        }
+        
         .links {
             text-align: center;
             margin-top: 20px;
@@ -183,6 +209,21 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             margin: 20px 0;
             color: #999;
         }
+        
+        .forgot-password {
+            text-align: right;
+            margin-top: 8px;
+        }
+        
+        .forgot-password a {
+            color: #667eea;
+            font-size: 13px;
+            text-decoration: none;
+        }
+        
+        .forgot-password a:hover {
+            text-decoration: underline;
+        }
     </style>
 </head>
 <body>
@@ -194,6 +235,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         
         <?php if ($error): ?>
             <div class="error"><?= htmlspecialchars($error) ?></div>
+        <?php endif; ?>
+        
+        <?php if ($warning): ?>
+            <div class="warning"><?= $warning ?></div>
         <?php endif; ?>
         
         <form method="POST" action="">
@@ -209,6 +254,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             <div class="form-group">
                 <label for="password">Mot de passe</label>
                 <input type="password" id="password" name="password" required>
+                <div class="forgot-password">
+                    <a href="forgot-password.php">Mot de passe oublié ?</a>
+                </div>
             </div>
             
             <button type="submit" class="btn-submit">Se connecter</button>
