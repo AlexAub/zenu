@@ -5,9 +5,9 @@
 define('SMTP_HOST', 'ssl0.ovh.net'); // Serveur SMTP OVH
 define('SMTP_PORT', 465); // Port SSL
 define('SMTP_SECURE', 'ssl'); // ou 'tls'
-define('SMTP_USERNAME', 'noreply@zenu.fr'); // Votre email
-define('SMTP_PASSWORD', 'zw_X=AN4*D%w/-A'); // Mot de passe email
-define('SMTP_FROM_EMAIL', 'noreply@zenu.fr');
+define('SMTP_USERNAME', 'noreply@XXX.fr'); // Votre email
+define('SMTP_PASSWORD', 'XXXXXXX'); // Mot de passe email
+define('SMTP_FROM_EMAIL', 'noreply@XXX.fr');
 define('SMTP_FROM_NAME', 'Zenu');
 
 // Configuration reCAPTCHA v3
