@@ -14,7 +14,7 @@ $user = getCurrentUser();
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Convertisseur Privé - Zenu</title>
+    <title>Convertisseur Cloud - Zenu</title>
     <style>
         * {
             margin: 0;
@@ -406,7 +406,7 @@ $user = getCurrentUser();
 <body>
     <div class="container" id="container">
         <div class="header">
-            <h1>🔒 Convertisseur Privé - Sauvegarde Cloud</h1>
+            <h1>🔒 Convertisseur Cloud - Sauvegarde Cloud</h1>
             <a href="dashboard.php">← Mes images</a>
         </div>
         

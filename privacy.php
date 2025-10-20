@@ -99,6 +99,37 @@
             background: #f5f5f5;
             font-weight: 600;
         }
+        
+        a {
+            color: #667eea;
+            text-decoration: none;
+        }
+        
+        a:hover {
+            text-decoration: underline;
+        }
+        
+        .legal-links {
+            text-align: center;
+            margin-top: 20px;
+            padding-top: 20px;
+            border-top: 1px solid #ddd;
+        }
+        
+        .legal-links p {
+            font-size: 14px;
+            color: #666;
+        }
+        
+        .legal-links a {
+            color: #667eea;
+            margin: 0 10px;
+            text-decoration: none;
+        }
+        
+        .legal-links a:hover {
+            text-decoration: underline;
+        }
     </style>
 </head>
 <body>
@@ -109,10 +140,15 @@
         <p>Chez Zenu, nous prenons la protection de vos données personnelles très au sérieux. Cette politique de confidentialité explique quelles données nous collectons, pourquoi nous les collectons et comment nous les utilisons.</p>
         
         <h2>1. Responsable du traitement</h2>
-        <p><strong>Alex Aubin</strong><br>
+        <p><strong>Alex Aubin</strong> (particulier)<br>
         102 rue Truffaut<br>
         75017 Paris, France<br>
-        Email : contact@zenu.fr</p>
+        Email : <a href="mailto:contact@zenu.fr">contact@zenu.fr</a></p>
+        
+        <div class="highlight">
+            <strong>ℹ️ Site non professionnel :</strong>
+            <p style="margin-top: 10px; margin-bottom: 0;">Zenu est un site gratuit édité par un particulier à titre non professionnel. Aucun traitement de données à des fins commerciales ou marketing n'est effectué.</p>
+        </div>
         
         <h2>2. Données collectées</h2>
         
@@ -173,7 +209,7 @@
         
         <div class="highlight">
             <strong>🔒 Engagement :</strong>
-            <p style="margin-top: 10px; margin-bottom: 0;">Nous ne vendons, ne louons et ne partageons JAMAIS vos données personnelles avec des tiers à des fins commerciales.</p>
+            <p style="margin-top: 10px; margin-bottom: 0;">Nous ne vendons, ne louons et ne partageons JAMAIS vos données personnelles avec des tiers à des fins commerciales ou marketing. Ce site étant gratuit et non commercial, aucune donnée n'est utilisée à des fins publicitaires.</p>
         </div>
         
         <h2>4. Partage des données</h2>
@@ -182,6 +218,7 @@
             <li><strong>OVH (hébergeur) :</strong> Nécessaire pour l'hébergement du Service (serveurs situés en France)</li>
             <li><strong>Autorités légales :</strong> Uniquement si requis par la loi (décision de justice, etc.)</li>
         </ul>
+        <p><strong>Aucun partage avec des partenaires commerciaux, publicitaires ou tiers.</strong></p>
         
         <h2>5. Durée de conservation</h2>
         <table>
@@ -240,7 +277,7 @@
         
         <div class="highlight">
             <strong>📧 Exercer vos droits :</strong>
-            <p style="margin-top: 10px; margin-bottom: 0;">Pour exercer vos droits, contactez-nous à : <strong>contact@zenu.fr</strong><br>
+            <p style="margin-top: 10px; margin-bottom: 0;">Pour exercer vos droits, contactez-nous à : <strong><a href="mailto:contact@zenu.fr">contact@zenu.fr</a></strong><br>
             Nous vous répondrons sous 1 mois maximum.</p>
         </div>
         
@@ -248,19 +285,27 @@
         <p>Vos données sont stockées exclusivement en France (hébergement OVH). Aucun transfert hors UE n'est effectué.</p>
         
         <h2>9. Mineurs</h2>
-        <p>Notre service est accessible aux personnes de plus de 16 ans. Si vous avez moins de 16 ans, vous devez obtenir l'autorisation de vos parents.</p>
+        <p>Notre service est accessible aux personnes de plus de 16 ans. Si vous avez moins de 16 ans, vous devez obtenir l'autorisation de vos parents ou représentants légaux.</p>
         
         <h2>10. Modifications de la politique</h2>
-        <p>Nous pouvons modifier cette politique de confidentialité. En cas de changements importants, nous vous informerons par email.</p>
+        <p>Nous pouvons modifier cette politique de confidentialité à tout moment. En cas de changements importants, nous vous informerons par email si possible, ou par un avis sur le site.</p>
         
         <h2>11. Contact</h2>
         <p>Pour toute question sur cette politique de confidentialité ou vos données personnelles :</p>
         <ul>
-            <li><strong>Email :</strong> contact@zenu.fr</li>
-            <li><strong>Courrier :</strong> Alex Aubin, 102 rue Truffaut, 75017 Paris</li>
+            <li><strong>Email :</strong> <a href="mailto:contact@zenu.fr">contact@zenu.fr</a></li>
+            <li><strong>Courrier :</strong> Alex Aubin, 102 rue Truffaut, 75017 Paris, France</li>
         </ul>
         
         <a href="index.php" class="back-link">← Retour à l'accueil</a>
+        
+        <div class="legal-links">
+            <p>
+                <a href="mentions-legales.php">Mentions légales</a> · 
+                <a href="cgu.php">CGU</a> · 
+                <a href="privacy.php">Confidentialité</a>
+            </p>
+        </div>
     </div>
 </body>
 </html>

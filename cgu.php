@@ -82,6 +82,28 @@
         .back-link:hover {
             text-decoration: underline;
         }
+        
+        .legal-links {
+            text-align: center;
+            margin-top: 20px;
+            padding-top: 20px;
+            border-top: 1px solid #ddd;
+        }
+        
+        .legal-links p {
+            font-size: 14px;
+            color: #666;
+        }
+        
+        .legal-links a {
+            color: #667eea;
+            margin: 0 10px;
+            text-decoration: none;
+        }
+        
+        .legal-links a:hover {
+            text-decoration: underline;
+        }
     </style>
 </head>
 <body>
@@ -96,7 +118,7 @@
         <p>Zenu est une plateforme proposant des outils de traitement d'images :</p>
         <ul>
             <li><strong>Convertisseur d'images public :</strong> Outil gratuit de conversion et redimensionnement d'images en local (aucun upload sur nos serveurs)</li>
-            <li><strong>Convertisseur privé :</strong> Outil de conversion avec sauvegarde des images sur nos serveurs (nécessite un compte)</li>
+            <li><strong>Convertisseur Cloud :</strong> Outil de conversion avec sauvegarde des images sur nos serveurs (nécessite un compte)</li>
             <li><strong>Gestionnaire d'images :</strong> Espace de stockage personnel pour vos images converties</li>
         </ul>
         
@@ -123,7 +145,7 @@
         <p>Il est strictement interdit de télécharger, stocker ou partager des contenus :</p>
         <ul>
             <li>Illégaux, diffamatoires, ou portant atteinte aux droits d'autrui</li>
-            <li>À caractère pornographique, pédopornographique ou violant</li>
+            <li>À caractère pornographique, pédopornographique ou violent</li>
             <li>Incitant à la haine, à la violence, au terrorisme ou à la discrimination</li>
             <li>Violant les droits de propriété intellectuelle de tiers</li>
             <li>Contenant des virus, malwares ou codes malveillants</li>
@@ -189,10 +211,18 @@
         <p>Pour toute question concernant les présentes CGU, vous pouvez nous contacter :</p>
         <ul>
             <li><strong>Email :</strong> contact@zenu.fr</li>
-            <li><strong>Adresse :</strong> 102 rue Truffaut, 75017 Paris, France</li>
+            <li><strong>Courrier :</strong> Alex Aubin, 102 rue Truffaut, 75017 Paris, France</li>
         </ul>
         
         <a href="index.php" class="back-link">← Retour à l'accueil</a>
+        
+        <div class="legal-links">
+            <p>
+                <a href="mentions-legales.php">Mentions légales</a> · 
+                <a href="cgu.php">CGU</a> · 
+                <a href="privacy.php">Confidentialité</a>
+            </p>
+        </div>
     </div>
 </body>
 </html>
