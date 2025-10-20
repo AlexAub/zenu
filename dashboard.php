@@ -96,8 +96,8 @@ $used_space_percent = ($total_size / (500 * 1024 * 1024)) * 100;
         }
         
         .container {
-            max-width: 1200px;
-            margin: 40px auto;
+            max-width: 1400px;
+            margin: 30px auto;
             padding: 0 20px;
             flex: 1;
         }
@@ -105,60 +105,65 @@ $used_space_percent = ($total_size / (500 * 1024 * 1024)) * 100;
         .dashboard-header {
             background: rgba(255, 255, 255, 0.98);
             border-radius: 12px;
-            padding: 30px;
-            margin-bottom: 30px;
+            padding: 25px 30px;
+            margin-bottom: 25px;
             box-shadow: 0 2px 15px rgba(0,0,0,0.08);
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            flex-wrap: wrap;
+            gap: 15px;
         }
         
-        .dashboard-header h1 {
-            font-size: 32px;
+        .user-info h1 {
+            font-size: 28px;
             color: #667eea;
-            margin-bottom: 10px;
+            margin-bottom: 5px;
         }
         
         .user-email {
             color: #666;
-            font-size: 16px;
+            font-size: 14px;
         }
         
         .stats-grid {
             display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
-            gap: 20px;
-            margin-bottom: 30px;
+            grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+            gap: 15px;
+            margin-bottom: 25px;
         }
         
         .stat-card {
             background: rgba(255, 255, 255, 0.98);
-            border-radius: 12px;
-            padding: 25px;
+            border-radius: 10px;
+            padding: 20px;
             box-shadow: 0 2px 15px rgba(0,0,0,0.08);
             text-align: center;
         }
         
         .stat-icon {
-            font-size: 36px;
-            margin-bottom: 10px;
+            font-size: 32px;
+            margin-bottom: 8px;
         }
         
         .stat-value {
-            font-size: 28px;
+            font-size: 22px;
             font-weight: 700;
             color: #667eea;
-            margin-bottom: 5px;
+            margin-bottom: 3px;
         }
         
         .stat-label {
             color: #666;
-            font-size: 14px;
+            font-size: 13px;
         }
         
         .progress-bar {
             width: 100%;
-            height: 8px;
+            height: 6px;
             background: #e0e0e0;
-            border-radius: 4px;
-            margin-top: 10px;
+            border-radius: 3px;
+            margin-top: 8px;
             overflow: hidden;
         }
         
@@ -171,7 +176,7 @@ $used_space_percent = ($total_size / (500 * 1024 * 1024)) * 100;
         .content-section {
             background: rgba(255, 255, 255, 0.98);
             border-radius: 12px;
-            padding: 30px;
+            padding: 25px;
             box-shadow: 0 2px 15px rgba(0,0,0,0.08);
             margin-bottom: 30px;
         }
@@ -184,7 +189,7 @@ $used_space_percent = ($total_size / (500 * 1024 * 1024)) * 100;
         }
         
         .section-header h2 {
-            font-size: 24px;
+            font-size: 22px;
             color: #667eea;
         }
         
@@ -229,8 +234,8 @@ $used_space_percent = ($total_size / (500 * 1024 * 1024)) * 100;
         
         .images-grid {
             display: grid;
-            grid-template-columns: repeat(auto-fill, minmax(250px, 1fr));
-            gap: 20px;
+            grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+            gap: 15px;
         }
         
         .image-card {
@@ -248,7 +253,7 @@ $used_space_percent = ($total_size / (500 * 1024 * 1024)) * 100;
         
         .image-preview {
             width: 100%;
-            height: 200px;
+            height: 180px;
             background: #e0e0e0;
             display: flex;
             align-items: center;
@@ -269,14 +274,14 @@ $used_space_percent = ($total_size / (500 * 1024 * 1024)) * 100;
         }
         
         .image-info {
-            padding: 15px;
+            padding: 12px;
         }
         
         .image-name {
             font-weight: 600;
             color: #333;
-            margin-bottom: 8px;
-            font-size: 14px;
+            margin-bottom: 6px;
+            font-size: 13px;
             white-space: nowrap;
             overflow: hidden;
             text-overflow: ellipsis;
@@ -297,39 +302,39 @@ $used_space_percent = ($total_size / (500 * 1024 * 1024)) * 100;
         
         .edit-icon {
             opacity: 0.5;
-            font-size: 12px;
+            font-size: 11px;
             transition: opacity 0.2s;
         }
         
         .image-meta {
-            font-size: 12px;
+            font-size: 11px;
             color: #999;
-            margin-bottom: 10px;
+            margin-bottom: 8px;
         }
         
         .image-url {
             background: #fff;
             border: 1px solid #ddd;
             border-radius: 4px;
-            padding: 6px;
-            font-size: 11px;
+            padding: 5px;
+            font-size: 10px;
             word-break: break-all;
-            margin-bottom: 10px;
-            max-height: 40px;
+            margin-bottom: 8px;
+            max-height: 35px;
             overflow: hidden;
         }
         
         .image-actions {
             display: flex;
-            gap: 8px;
+            gap: 6px;
         }
         
         .btn-action {
             flex: 1;
-            padding: 6px;
+            padding: 5px;
             border: none;
-            border-radius: 6px;
-            font-size: 12px;
+            border-radius: 5px;
+            font-size: 11px;
             cursor: pointer;
             transition: transform 0.2s;
             font-weight: 600;
@@ -356,11 +361,11 @@ $used_space_percent = ($total_size / (500 * 1024 * 1024)) * 100;
         
         .rename-input {
             width: 100%;
-            padding: 6px;
+            padding: 5px;
             border: 2px solid #667eea;
             border-radius: 4px;
-            font-size: 13px;
-            margin-bottom: 8px;
+            font-size: 12px;
+            margin-bottom: 6px;
         }
         
         @media (max-width: 768px) {
@@ -372,16 +377,34 @@ $used_space_percent = ($total_size / (500 * 1024 * 1024)) * 100;
                 grid-template-columns: 1fr;
             }
             
-            .footer-content {
+            .dashboard-header {
                 flex-direction: column;
-                text-align: center;
-                gap: 12px;
+                align-items: flex-start;
             }
             
-            .footer-left,
-            .footer-right {
-                flex-wrap: wrap;
-                justify-content: center;
+            .btn-primary {
+                width: 100%;
+                text-align: center;
+            }
+        }
+        
+        @media (min-width: 769px) and (max-width: 1200px) {
+            .images-grid {
+                grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+            }
+            
+            .stats-grid {
+                grid-template-columns: repeat(3, 1fr);
+            }
+        }
+        
+        @media (min-width: 1201px) {
+            .images-grid {
+                grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+            }
+            
+            .stats-grid {
+                grid-template-columns: repeat(3, 1fr);
             }
         }
         
@@ -395,7 +418,7 @@ $used_space_percent = ($total_size / (500 * 1024 * 1024)) * 100;
         }
 
         .footer-content {
-            max-width: 1200px;
+            max-width: 1400px;
             margin: 0 auto;
             display: flex;
             justify-content: space-between;
@@ -466,8 +489,11 @@ $used_space_percent = ($total_size / (500 * 1024 * 1024)) * 100;
 
     <div class="container">
         <div class="dashboard-header">
-            <h1>Bienvenue, <?= htmlspecialchars($user['username']) ?> 👋</h1>
-            <p class="user-email"><?= htmlspecialchars($user['email']) ?></p>
+            <div class="user-info">
+                <h1>Bienvenue, <?= htmlspecialchars($user['username']) ?> 👋</h1>
+                <p class="user-email"><?= htmlspecialchars($user['email']) ?></p>
+            </div>
+            <a href="convertisseur-prive.php" class="btn-primary">➕ Nouvelle image</a>
         </div>
 
         <div class="stats-grid">
@@ -499,7 +525,6 @@ $used_space_percent = ($total_size / (500 * 1024 * 1024)) * 100;
         <div class="content-section">
             <div class="section-header">
                 <h2>Mes images</h2>
-                <a href="convertisseur-prive.php" class="btn-primary">➕ Nouvelle image</a>
             </div>
             
             <?php if (empty($images)): ?>
