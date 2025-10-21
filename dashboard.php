@@ -1,34 +1,78 @@
 <?php
 require_once 'config.php';
+require_once 'security.php';
+require_once 'image-functions.php';
 
-// Vérifier si l'utilisateur est connecté
+// Vérifier la connexion
 if (!isLoggedIn()) {
     header('Location: login.php');
     exit;
 }
 
-$user = getCurrentUser();
+$userId = $_SESSION['user_id'];
 
-// Récupérer les images de l'utilisateur
-$stmt = $pdo->prepare("SELECT * FROM images WHERE user_id = ? ORDER BY created_at DESC");
-$stmt->execute([$_SESSION['user_id']]);
-$images = $stmt->fetchAll();
+// Récupérer les paramètres de recherche/filtre
+$search = $_GET['search'] ?? '';
+$sort = $_GET['sort'] ?? 'created_at';
+$order = $_GET['order'] ?? 'DESC';
+$visibility = $_GET['visibility'] ?? '';
+$page = max(1, intval($_GET['page'] ?? 1));
+$perPage = 20;
 
-// Calculer l'espace utilisé
-$stmt = $pdo->prepare("SELECT SUM(size) as total_size, COUNT(*) as total_images FROM images WHERE user_id = ?");
-$stmt->execute([$_SESSION['user_id']]);
+// Construire la requête
+$params = [
+    'search' => $search,
+    'sort' => $sort,
+    'order' => $order,
+    'visibility' => $visibility,
+    'page' => $page,
+    'per_page' => $perPage
+];
+
+$result = searchImages($pdo, $userId, $params);
+$images = $result['images'];
+
+// Compter le total pour la pagination
+$countQuery = "SELECT COUNT(*) as total FROM images WHERE user_id = ? AND is_deleted = 0";
+$countBindings = [$userId];
+
+if (!empty($search)) {
+    $countQuery .= " AND (filename LIKE ? OR original_filename LIKE ?)";
+    $searchTerm = '%' . $search . '%';
+    $countBindings[] = $searchTerm;
+    $countBindings[] = $searchTerm;
+}
+
+if ($visibility === 'public') {
+    $countQuery .= " AND is_public = 1";
+} elseif ($visibility === 'private') {
+    $countQuery .= " AND is_public = 0";
+}
+
+$stmt = $pdo->prepare($countQuery);
+$stmt->execute($countBindings);
+$totalImages = $stmt->fetch()['total'];
+$totalPages = ceil($totalImages / $perPage);
+
+// Récupérer les stats utilisateur
+$stmt = $pdo->prepare("
+    SELECT 
+        COUNT(*) as total_images,
+        SUM(CASE WHEN is_public = 1 THEN 1 ELSE 0 END) as public_images,
+        SUM(file_size) as total_size,
+        SUM(views) as total_views
+    FROM images 
+    WHERE user_id = ? AND is_deleted = 0
+");
+$stmt->execute([$userId]);
 $stats = $stmt->fetch();
-$total_size = $stats['total_size'] ?? 0;
-$total_images = $stats['total_images'] ?? 0;
-$used_space_mb = round($total_size / (1024 * 1024), 2);
-$used_space_percent = ($total_size / (500 * 1024 * 1024)) * 100;
 ?>
 <!DOCTYPE html>
 <html lang="fr">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Mon espace - Zenu</title>
+    <title>Mes images - Zenu</title>
     <style>
         * {
             margin: 0;
@@ -38,699 +82,635 @@ $used_space_percent = ($total_size / (500 * 1024 * 1024)) * 100;
         
         body {
             font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            background: #f5f5f5;
             min-height: 100vh;
-            color: #333;
-            display: flex;
-            flex-direction: column;
         }
         
-        nav {
-            background: rgba(255, 255, 255, 0.98);
-            padding: 15px 30px;
-            box-shadow: 0 1px 3px rgba(0,0,0,0.05);
-            backdrop-filter: blur(10px);
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-        }
-        
-        .logo {
-            font-size: 24px;
-            font-weight: 700;
-            color: #667eea;
-            text-decoration: none;
-        }
-        
-        .nav-links {
-            display: flex;
-            gap: 20px;
-            align-items: center;
-        }
-        
-        .nav-links a {
-            color: #555;
-            text-decoration: none;
-            font-size: 15px;
-            transition: color 0.3s;
-        }
-        
-        .nav-links a:hover {
-            color: #667eea;
-        }
-        
-        .btn-logout {
-            background: #e0e0e0;
-            color: #555;
-            padding: 8px 20px;
-            border-radius: 6px;
-            text-decoration: none;
-            font-weight: 600;
-            border: none;
-            cursor: pointer;
-            transition: background 0.3s;
-        }
-        
-        .btn-logout:hover {
-            background: #d0d0d0;
+        .header {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 20px 0;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
         }
         
         .container {
             max-width: 1400px;
-            margin: 30px auto;
+            margin: 0 auto;
             padding: 0 20px;
-            flex: 1;
         }
         
-        .dashboard-header {
-            background: rgba(255, 255, 255, 0.98);
-            border-radius: 12px;
-            padding: 25px 30px;
-            margin-bottom: 25px;
-            box-shadow: 0 2px 15px rgba(0,0,0,0.08);
+        .header-content {
             display: flex;
             justify-content: space-between;
             align-items: center;
-            flex-wrap: wrap;
-            gap: 15px;
         }
         
-        .user-info h1 {
-            font-size: 28px;
+        .logo h1 {
+            font-size: 24px;
+        }
+        
+        .nav a {
+            color: white;
+            text-decoration: none;
+            margin-left: 20px;
+            padding: 8px 16px;
+            border-radius: 6px;
+            transition: background 0.3s;
+        }
+        
+        .nav a:hover {
+            background: rgba(255,255,255,0.2);
+        }
+        
+        .stats {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 20px;
+            margin: 30px 0;
+        }
+        
+        .stat-card {
+            background: white;
+            padding: 20px;
+            border-radius: 12px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+        }
+        
+        .stat-value {
+            font-size: 32px;
+            font-weight: bold;
             color: #667eea;
             margin-bottom: 5px;
         }
         
-        .user-email {
+        .stat-label {
             color: #666;
             font-size: 14px;
         }
         
-        .stats-grid {
-            display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
-            gap: 15px;
-            margin-bottom: 25px;
-        }
-        
-        .stat-card {
-            background: rgba(255, 255, 255, 0.98);
-            border-radius: 10px;
+        .controls {
+            background: white;
             padding: 20px;
-            box-shadow: 0 2px 15px rgba(0,0,0,0.08);
-            text-align: center;
-        }
-        
-        .stat-icon {
-            font-size: 32px;
-            margin-bottom: 8px;
-        }
-        
-        .stat-value {
-            font-size: 22px;
-            font-weight: 700;
-            color: #667eea;
-            margin-bottom: 3px;
-        }
-        
-        .stat-label {
-            color: #666;
-            font-size: 13px;
-        }
-        
-        .progress-bar {
-            width: 100%;
-            height: 6px;
-            background: #e0e0e0;
-            border-radius: 3px;
-            margin-top: 8px;
-            overflow: hidden;
-        }
-        
-        .progress-fill {
-            height: 100%;
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-            transition: width 0.3s;
-        }
-        
-        .content-section {
-            background: rgba(255, 255, 255, 0.98);
             border-radius: 12px;
-            padding: 25px;
-            box-shadow: 0 2px 15px rgba(0,0,0,0.08);
-            margin-bottom: 30px;
-        }
-        
-        .section-header {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
             margin-bottom: 20px;
         }
         
-        .section-header h2 {
-            font-size: 22px;
-            color: #667eea;
+        .controls-row {
+            display: flex;
+            gap: 15px;
+            flex-wrap: wrap;
+            align-items: center;
+        }
+        
+        .search-box {
+            flex: 1;
+            min-width: 250px;
+            position: relative;
+        }
+        
+        .search-box input {
+            width: 100%;
+            padding: 12px 40px 12px 15px;
+            border: 2px solid #e0e0e0;
+            border-radius: 8px;
+            font-size: 15px;
+            transition: border 0.3s;
+        }
+        
+        .search-box input:focus {
+            outline: none;
+            border-color: #667eea;
+        }
+        
+        .search-icon {
+            position: absolute;
+            right: 12px;
+            top: 50%;
+            transform: translateY(-50%);
+            color: #999;
+            font-size: 18px;
+        }
+        
+        .filter-group {
+            display: flex;
+            gap: 10px;
+            align-items: center;
+        }
+        
+        .filter-group select {
+            padding: 10px 15px;
+            border: 2px solid #e0e0e0;
+            border-radius: 8px;
+            font-size: 14px;
+            background: white;
+            cursor: pointer;
+            transition: border 0.3s;
+        }
+        
+        .filter-group select:focus {
+            outline: none;
+            border-color: #667eea;
+        }
+        
+        .btn {
+            padding: 10px 20px;
+            border: none;
+            border-radius: 8px;
+            font-size: 14px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s;
+            text-decoration: none;
+            display: inline-block;
         }
         
         .btn-primary {
-            display: inline-block;
             background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
             color: white;
-            padding: 10px 25px;
-            border-radius: 8px;
-            text-decoration: none;
-            font-weight: 600;
-            font-size: 14px;
-            transition: transform 0.2s;
         }
         
         .btn-primary:hover {
             transform: translateY(-2px);
+            box-shadow: 0 4px 12px rgba(102, 126, 234, 0.4);
         }
         
-        .empty-state {
-            text-align: center;
-            padding: 60px 20px;
-            color: #999;
+        .btn-secondary {
+            background: #f0f0f0;
+            color: #333;
         }
         
-        .empty-state-icon {
-            font-size: 64px;
-            margin-bottom: 20px;
-            opacity: 0.5;
-        }
-        
-        .empty-state h3 {
-            font-size: 20px;
-            margin-bottom: 10px;
-            color: #666;
-        }
-        
-        .empty-state p {
-            font-size: 16px;
-            margin-bottom: 20px;
+        .btn-secondary:hover {
+            background: #e0e0e0;
         }
         
         .images-grid {
             display: grid;
-            grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
-            gap: 15px;
+            grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+            gap: 20px;
+            margin-bottom: 30px;
         }
         
         .image-card {
-            background: rgba(248, 249, 255, 0.98);
+            background: white;
             border-radius: 12px;
             overflow: hidden;
-            box-shadow: 0 1px 8px rgba(0,0,0,0.06);
-            transition: transform 0.2s;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+            transition: transform 0.3s, box-shadow 0.3s;
+            position: relative;
         }
         
         .image-card:hover {
             transform: translateY(-5px);
-            box-shadow: 0 4px 15px rgba(0,0,0,0.1);
+            box-shadow: 0 8px 20px rgba(0,0,0,0.15);
         }
         
         .image-preview {
             width: 100%;
-            height: 180px;
-            background: #e0e0e0;
+            height: 220px;
+            overflow: hidden;
+            background: #f5f5f5;
             display: flex;
             align-items: center;
             justify-content: center;
-            overflow: hidden;
-            cursor: pointer;
-            transition: opacity 0.2s;
-        }
-        
-        .image-preview:hover {
-            opacity: 0.9;
+            position: relative;
         }
         
         .image-preview img {
             width: 100%;
             height: 100%;
             object-fit: cover;
+            transition: transform 0.3s;
+        }
+        
+        .image-card:hover .image-preview img {
+            transform: scale(1.05);
         }
         
         .image-info {
-            padding: 12px;
+            padding: 15px;
         }
         
         .image-name {
             font-weight: 600;
             color: #333;
-            margin-bottom: 6px;
-            font-size: 13px;
+            margin-bottom: 8px;
             white-space: nowrap;
             overflow: hidden;
             text-overflow: ellipsis;
-            cursor: pointer;
-            transition: color 0.2s;
-            display: flex;
-            align-items: center;
-            gap: 5px;
-        }
-        
-        .image-name:hover {
-            color: #667eea;
-        }
-        
-        .image-name:hover .edit-icon {
-            opacity: 1;
-        }
-        
-        .edit-icon {
-            opacity: 0.5;
-            font-size: 11px;
-            transition: opacity 0.2s;
         }
         
         .image-meta {
-            font-size: 11px;
+            display: flex;
+            justify-content: space-between;
+            font-size: 12px;
             color: #999;
-            margin-bottom: 8px;
+            margin-bottom: 10px;
         }
         
-        .image-url {
-            background: #fff;
-            border: 1px solid #ddd;
+        .image-badges {
+            display: flex;
+            gap: 5px;
+            margin-bottom: 10px;
+            flex-wrap: wrap;
+        }
+        
+        .badge {
+            display: inline-block;
+            padding: 3px 8px;
             border-radius: 4px;
-            padding: 5px;
-            font-size: 10px;
-            word-break: break-all;
-            margin-bottom: 8px;
-            max-height: 35px;
-            overflow: hidden;
+            font-size: 11px;
+            font-weight: 600;
+        }
+        
+        .badge-public {
+            background: #e8f5e9;
+            color: #2e7d32;
+        }
+        
+        .badge-private {
+            background: #fce4ec;
+            color: #c2185b;
         }
         
         .image-actions {
             display: flex;
-            gap: 6px;
+            gap: 8px;
         }
         
-        .btn-action {
+        .icon-btn {
             flex: 1;
-            padding: 5px;
+            padding: 8px;
             border: none;
-            border-radius: 5px;
-            font-size: 11px;
+            background: #f5f5f5;
+            border-radius: 6px;
             cursor: pointer;
-            transition: transform 0.2s;
-            font-weight: 600;
+            transition: all 0.2s;
+            font-size: 14px;
         }
         
-        .btn-action:hover {
+        .icon-btn:hover {
+            background: #e0e0e0;
+            transform: translateY(-1px);
+        }
+        
+        .icon-btn.delete:hover {
+            background: #ffebee;
+            color: #c62828;
+        }
+        
+        .pagination {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            gap: 10px;
+            margin: 30px 0;
+        }
+        
+        .pagination a, .pagination span {
+            padding: 8px 15px;
+            border-radius: 6px;
+            text-decoration: none;
+            color: #333;
+            background: white;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+            transition: all 0.2s;
+        }
+        
+        .pagination a:hover {
+            background: #667eea;
+            color: white;
             transform: translateY(-2px);
         }
         
-        .btn-copy {
-            background: #2196f3;
+        .pagination .active {
+            background: #667eea;
             color: white;
         }
         
-        .btn-download {
-            background: #4caf50;
-            color: white;
+        .empty-state {
+            text-align: center;
+            padding: 60px 20px;
+            background: white;
+            border-radius: 12px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
         }
         
-        .btn-delete {
-            background: #f44336;
-            color: white;
+        .empty-state-icon {
+            font-size: 64px;
+            margin-bottom: 20px;
+            opacity: 0.3;
         }
         
-        .rename-input {
-            width: 100%;
-            padding: 5px;
-            border: 2px solid #667eea;
-            border-radius: 4px;
+        .empty-state h3 {
+            color: #333;
+            margin-bottom: 10px;
+        }
+        
+        .empty-state p {
+            color: #999;
+            margin-bottom: 20px;
+        }
+        
+        .visibility-toggle {
+            position: absolute;
+            top: 10px;
+            right: 10px;
+            background: rgba(255,255,255,0.95);
+            padding: 6px 10px;
+            border-radius: 6px;
             font-size: 12px;
-            margin-bottom: 6px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.2s;
+            z-index: 10;
+        }
+        
+        .visibility-toggle:hover {
+            background: white;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.15);
         }
         
         @media (max-width: 768px) {
-            .stats-grid {
-                grid-template-columns: 1fr;
-            }
-            
-            .images-grid {
-                grid-template-columns: 1fr;
-            }
-            
-            .dashboard-header {
+            .controls-row {
                 flex-direction: column;
-                align-items: flex-start;
             }
             
-            .btn-primary {
+            .search-box, .filter-group {
                 width: 100%;
-                text-align: center;
             }
-        }
-        
-        @media (min-width: 769px) and (max-width: 1200px) {
+            
             .images-grid {
                 grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
             }
-            
-            .stats-grid {
-                grid-template-columns: repeat(3, 1fr);
-            }
-        }
-        
-        @media (min-width: 1201px) {
-            .images-grid {
-                grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
-            }
-            
-            .stats-grid {
-                grid-template-columns: repeat(3, 1fr);
-            }
-        }
-        
-        /* Footer minimal */
-        .site-footer {
-            background: rgba(255, 255, 255, 0.98);
-            padding: 20px;
-            margin-top: 60px;
-            box-shadow: 0 -1px 3px rgba(0,0,0,0.05);
-            backdrop-filter: blur(10px);
-        }
-
-        .footer-content {
-            max-width: 1400px;
-            margin: 0 auto;
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            flex-wrap: wrap;
-            gap: 15px;
-        }
-
-        .footer-left {
-            display: flex;
-            align-items: center;
-            gap: 8px;
-            color: #666;
-            font-size: 14px;
-        }
-
-        .footer-brand {
-            font-weight: 600;
-            color: #667eea;
-        }
-
-        .footer-tagline {
-            color: #999;
-        }
-
-        .footer-separator {
-            color: #ddd;
-        }
-
-        .footer-right {
-            display: flex;
-            align-items: center;
-            gap: 8px;
-            font-size: 13px;
-        }
-
-        .footer-right a {
-            color: #666;
-            text-decoration: none;
-            transition: color 0.3s;
-        }
-
-        .footer-right a:hover {
-            color: #667eea;
-        }
-
-        .footer-copyright {
-            text-align: center;
-            color: #aaa;
-            font-size: 12px;
-            margin-top: 15px;
-            padding-top: 15px;
-            border-top: 1px solid #f0f0f0;
         }
     </style>
 </head>
 <body>
-    <nav>
-        <a href="index.php" class="logo">🧘 Zenu</a>
-        <div class="nav-links">
-            <a href="index.php">Accueil</a>
-            <a href="dashboard.php">Mon espace</a>
-            <form action="logout.php" method="POST" style="display: inline;">
-                <button type="submit" class="btn-logout">Déconnexion</button>
-            </form>
-        </div>
-    </nav>
-
-    <div class="container">
-        <div class="dashboard-header">
-            <div class="user-info">
-                <h1>Bienvenue, <?= htmlspecialchars($user['username']) ?> 👋</h1>
-                <p class="user-email"><?= htmlspecialchars($user['email']) ?></p>
-            </div>
-            <a href="convertisseur-prive.php" class="btn-primary">➕ Nouvelle image</a>
-        </div>
-
-        <div class="stats-grid">
-            <div class="stat-card">
-                <div class="stat-icon">📁</div>
-                <div class="stat-value"><?= $total_images ?> / 500</div>
-                <div class="stat-label">Images</div>
-                <div class="progress-bar">
-                    <div class="progress-fill" style="width: <?= ($total_images / 500) * 100 ?>%"></div>
+    <div class="header">
+        <div class="container">
+            <div class="header-content">
+                <div class="logo">
+                    <h1>🧘 Zenu Dashboard</h1>
+                </div>
+                <div class="nav">
+                    <a href="upload.php">📤 Upload</a>
+                    <a href="trash.php">🗑️ Corbeille</a>
+                    <a href="logout.php">🚪 Déconnexion</a>
                 </div>
             </div>
-            
-            <div class="stat-card">
-                <div class="stat-icon">💾</div>
-                <div class="stat-value"><?= $used_space_mb ?> MB / 500 MB</div>
-                <div class="stat-label">Espace utilisé</div>
-                <div class="progress-bar">
-                    <div class="progress-fill" style="width: <?= min($used_space_percent, 100) ?>%"></div>
-                </div>
-            </div>
-            
-            <div class="stat-card">
-                <div class="stat-icon">⏱️</div>
-                <div class="stat-value"><?= date('d/m/Y', strtotime($user['created_at'])) ?></div>
-                <div class="stat-label">Membre depuis</div>
-            </div>
-        </div>
-
-        <div class="content-section">
-            <div class="section-header">
-                <h2>Mes images</h2>
-            </div>
-            
-            <?php if (empty($images)): ?>
-                <div class="empty-state">
-                    <div class="empty-state-icon">🖼️</div>
-                    <h3>Aucune image pour le moment</h3>
-                    <p>Utilisez le convertisseur Cloud pour sauvegarder vos premières images.</p>
-                    <a href="convertisseur-prive.php" class="btn-primary">Convertir et sauvegarder</a>
-                </div>
-            <?php else: ?>
-                <div class="images-grid">
-                    <?php foreach ($images as $image): ?>
-                        <div class="image-card" data-image-id="<?= $image['id'] ?>">
-                            <div class="image-preview" onclick="openImage('<?= htmlspecialchars($user['username']) ?>', '<?= htmlspecialchars($image['filename']) ?>')">
-                                <img src="/i/<?= htmlspecialchars($user['username']) ?>/<?= htmlspecialchars($image['filename']) ?>" 
-                                     alt="<?= htmlspecialchars($image['original_filename']) ?>"
-                                     loading="lazy">
-                            </div>
-                            <div class="image-info">
-                                <div class="image-name" 
-                                     data-image-id="<?= $image['id'] ?>"
-                                     data-original-name="<?= htmlspecialchars($image['original_filename']) ?>"
-                                     onclick="startRename(<?= $image['id'] ?>)"
-                                     title="Cliquer pour renommer">
-                                    <span style="overflow: hidden; text-overflow: ellipsis;"><?= htmlspecialchars($image['original_filename']) ?></span>
-                                    <span class="edit-icon">✏️</span>
-                                </div>
-                                <div class="image-meta">
-                                    <?= $image['width'] ?> × <?= $image['height'] ?> px · 
-                                    <?= number_format($image['size'] / 1024, 1) ?> KB<br>
-                                    <?= date('d/m/Y H:i', strtotime($image['created_at'])) ?>
-                                </div>
-                                <div class="image-url" title="<?= SITE_URL ?>/i/<?= htmlspecialchars($user['username']) ?>/<?= htmlspecialchars($image['filename']) ?>">
-                                    <?= SITE_URL ?>/i/<?= htmlspecialchars($user['username']) ?>/<?= htmlspecialchars($image['filename']) ?>
-                                </div>
-                                <div class="image-actions">
-                                    <button class="btn-action btn-copy" onclick="copyUrl('<?= SITE_URL ?>/i/<?= htmlspecialchars($user['username']) ?>/<?= htmlspecialchars($image['filename']) ?>')">
-                                        📋 Copier
-                                    </button>
-                                    <a href="/i/<?= htmlspecialchars($user['username']) ?>/<?= htmlspecialchars($image['filename']) ?>" 
-                                       download="<?= htmlspecialchars($image['original_filename']) ?>.jpg"
-                                       class="btn-action btn-download" style="text-decoration: none; text-align: center;">
-                                        ⬇️ DL
-                                    </a>
-                                    <button class="btn-action btn-delete" onclick="deleteImage(<?= $image['id'] ?>)">
-                                        🗑️ Sup
-                                    </button>
-                                </div>
-                            </div>
-                        </div>
-                    <?php endforeach; ?>
-                </div>
-            <?php endif; ?>
         </div>
     </div>
-
-    <footer class="site-footer">
-        <div class="footer-content">
-            <div class="footer-left">
-                <span class="footer-brand">🧘 Zenu</span>
-                <span class="footer-separator">·</span>
-                <span class="footer-tagline">Outils simples et zen</span>
+    
+    <div class="container">
+        <!-- Statistiques -->
+        <div class="stats">
+            <div class="stat-card">
+                <div class="stat-value"><?= number_format($stats['total_images']) ?></div>
+                <div class="stat-label">Images totales</div>
             </div>
-            
-            <div class="footer-right">
-                <a href="mentions-legales.php">Mentions légales</a>
-                <span class="footer-separator">·</span>
-                <a href="cgu.php">CGU</a>
-                <span class="footer-separator">·</span>
-                <a href="privacy.php">Confidentialité</a>
-                <span class="footer-separator">·</span>
-                <a href="mailto:contact@zenu.fr">Contact</a>
+            <div class="stat-card">
+                <div class="stat-value"><?= number_format($stats['public_images']) ?></div>
+                <div class="stat-label">Images publiques</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-value"><?= formatFileSize($stats['total_size'] ?? 0) ?></div>
+                <div class="stat-label">Espace utilisé</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-value"><?= number_format($stats['total_views']) ?></div>
+                <div class="stat-label">Vues totales</div>
             </div>
         </div>
         
-        <div class="footer-copyright">
-            &copy; <?= date('Y') ?> Zenu
+        <!-- Contrôles de recherche et filtres -->
+        <div class="controls">
+            <form method="GET" action="">
+                <div class="controls-row">
+                    <div class="search-box">
+                        <input type="text" 
+                               name="search" 
+                               placeholder="🔍 Rechercher par nom..." 
+                               value="<?= htmlspecialchars($search) ?>">
+                        <span class="search-icon">🔍</span>
+                    </div>
+                    
+                    <div class="filter-group">
+                        <select name="visibility" onchange="this.form.submit()">
+                            <option value="">Toutes</option>
+                            <option value="public" <?= $visibility === 'public' ? 'selected' : '' ?>>Publiques</option>
+                            <option value="private" <?= $visibility === 'private' ? 'selected' : '' ?>>Privées</option>
+                        </select>
+                        
+                        <select name="sort" onchange="this.form.submit()">
+                            <option value="created_at" <?= $sort === 'created_at' ? 'selected' : '' ?>>Date</option>
+                            <option value="filename" <?= $sort === 'filename' ? 'selected' : '' ?>>Nom</option>
+                            <option value="file_size" <?= $sort === 'file_size' ? 'selected' : '' ?>>Taille</option>
+                            <option value="views" <?= $sort === 'views' ? 'selected' : '' ?>>Vues</option>
+                        </select>
+                        
+                        <select name="order" onchange="this.form.submit()">
+                            <option value="DESC" <?= $order === 'DESC' ? 'selected' : '' ?>>↓ Décroissant</option>
+                            <option value="ASC" <?= $order === 'ASC' ? 'selected' : '' ?>>↑ Croissant</option>
+                        </select>
+                    </div>
+                    
+                    <button type="submit" class="btn btn-primary">Rechercher</button>
+                    <?php if ($search || $visibility): ?>
+                        <a href="dashboard-enhanced.php" class="btn btn-secondary">Réinitialiser</a>
+                    <?php endif; ?>
+                </div>
+            </form>
         </div>
-    </footer>
-
+        
+        <!-- Grille d'images -->
+        <?php if (empty($images)): ?>
+            <div class="empty-state">
+                <div class="empty-state-icon">📷</div>
+                <h3><?= $search ? 'Aucun résultat' : 'Aucune image' ?></h3>
+                <p><?= $search ? 'Essayez avec d\'autres mots-clés' : 'Commencez par uploader votre première image' ?></p>
+                <?php if (!$search): ?>
+                    <a href="upload.php" class="btn btn-primary">📤 Upload une image</a>
+                <?php endif; ?>
+            </div>
+        <?php else: ?>
+            <div class="images-grid">
+                <?php foreach ($images as $image): ?>
+                    <div class="image-card" data-image-id="<?= $image['id'] ?>">
+                        <div class="image-preview">
+                            <div class="visibility-toggle" 
+                                 onclick="toggleVisibility(<?= $image['id'] ?>, <?= $image['is_public'] ?>)"
+                                 title="<?= $image['is_public'] ? 'Rendre privée' : 'Rendre publique' ?>">
+                                <?= $image['is_public'] ? '🔓' : '🔒' ?>
+                            </div>
+                            <img src="<?= htmlspecialchars($image['thumbnail_path'] ?? $image['file_path']) ?>" 
+                                 alt="<?= htmlspecialchars($image['original_filename'] ?? $image['filename']) ?>"
+                                 loading="lazy">
+                        </div>
+                        <div class="image-info">
+                            <div class="image-name" title="<?= htmlspecialchars($image['original_filename'] ?? $image['filename']) ?>">
+                                <?= htmlspecialchars($image['original_filename'] ?? $image['filename']) ?>
+                            </div>
+                            <div class="image-meta">
+                                <span><?= $image['dimensions'] ?? ($image['width'] . 'x' . $image['height']) ?></span>
+                                <span><?= formatFileSize($image['file_size'] ?? 0) ?></span>
+                            </div>
+                            <div class="image-badges">
+                                <span class="badge <?= $image['is_public'] ? 'badge-public' : 'badge-private' ?>">
+                                    <?= $image['is_public'] ? '🌐 Public' : '🔒 Privé' ?>
+                                </span>
+                                <?php if ($image['views'] > 0): ?>
+                                    <span class="badge" style="background: #e3f2fd; color: #1976d2;">
+                                        👁️ <?= $image['views'] ?>
+                                    </span>
+                                <?php endif; ?>
+                            </div>
+                            <div class="image-actions">
+                                <button class="icon-btn" onclick="viewImage(<?= $image['id'] ?>)" title="Voir">
+                                    👁️
+                                </button>
+                                <?php if ($image['is_public']): ?>
+                                    <button class="icon-btn" onclick="copyShareLink(<?= $image['id'] ?>, '<?= $image['share_token'] ?>')" title="Copier lien">
+                                        🔗
+                                    </button>
+                                <?php endif; ?>
+                                <button class="icon-btn" onclick="downloadImage(<?= $image['id'] ?>)" title="Télécharger">
+                                    ⬇️
+                                </button>
+                                <button class="icon-btn delete" onclick="deleteImage(<?= $image['id'] ?>)" title="Supprimer">
+                                    🗑️
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                <?php endforeach; ?>
+            </div>
+            
+            <!-- Pagination -->
+            <?php if ($totalPages > 1): ?>
+                <div class="pagination">
+                    <?php if ($page > 1): ?>
+                        <a href="?page=<?= $page - 1 ?>&search=<?= urlencode($search) ?>&sort=<?= $sort ?>&order=<?= $order ?>&visibility=<?= $visibility ?>">
+                            ← Précédent
+                        </a>
+                    <?php endif; ?>
+                    
+                    <?php
+                    $startPage = max(1, $page - 2);
+                    $endPage = min($totalPages, $page + 2);
+                    
+                    for ($i = $startPage; $i <= $endPage; $i++):
+                    ?>
+                        <?php if ($i === $page): ?>
+                            <span class="active"><?= $i ?></span>
+                        <?php else: ?>
+                            <a href="?page=<?= $i ?>&search=<?= urlencode($search) ?>&sort=<?= $sort ?>&order=<?= $order ?>&visibility=<?= $visibility ?>">
+                                <?= $i ?>
+                            </a>
+                        <?php endif; ?>
+                    <?php endfor; ?>
+                    
+                    <?php if ($page < $totalPages): ?>
+                        <a href="?page=<?= $page + 1 ?>&search=<?= urlencode($search) ?>&sort=<?= $sort ?>&order=<?= $order ?>&visibility=<?= $visibility ?>">
+                            Suivant →
+                        </a>
+                    <?php endif; ?>
+                </div>
+            <?php endif; ?>
+        <?php endif; ?>
+    </div>
+    
     <script>
-        function openImage(username, filename) {
-            window.open('/i/' + username + '/' + filename, '_blank');
-        }
-        
-        function startRename(imageId) {
-            const nameDiv = document.querySelector(`.image-name[data-image-id="${imageId}"]`);
-            const originalName = nameDiv.getAttribute('data-original-name');
-            
-            const input = document.createElement('input');
-            input.type = 'text';
-            input.className = 'rename-input';
-            input.value = originalName;
-            input.onblur = () => finishRename(imageId, input.value);
-            input.onkeypress = (e) => {
-                if (e.key === 'Enter') {
-                    finishRename(imageId, input.value);
-                } else if (e.key === 'Escape') {
-                    nameDiv.style.display = 'block';
-                    input.remove();
-                }
-            };
-            
-            nameDiv.style.display = 'none';
-            nameDiv.parentElement.insertBefore(input, nameDiv);
-            input.focus();
-            input.select();
-        }
-        
-        async function finishRename(imageId, newName) {
-            const nameDiv = document.querySelector(`.image-name[data-image-id="${imageId}"]`);
-            const input = nameDiv.previousElementSibling;
-            
-            if (!newName || newName.trim() === '') {
-                nameDiv.style.display = 'block';
-                input.remove();
-                return;
-            }
+        // Toggle visibilité public/privé
+        async function toggleVisibility(imageId, isCurrentlyPublic) {
+            const newState = !isCurrentlyPublic;
             
             try {
-                const formData = new FormData();
-                formData.append('image_id', imageId);
-                formData.append('new_name', newName.trim());
-                
-                const response = await fetch('rename-image.php', {
+                const response = await fetch('api/toggle-visibility.php', {
                     method: 'POST',
-                    body: formData
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({
+                        image_id: imageId,
+                        is_public: newState
+                    })
                 });
                 
-                const result = await response.json();
+                const data = await response.json();
                 
-                if (result.success) {
-                    const cleanName = result.new_filename.replace('.jpg', '');
-                    nameDiv.innerHTML = `<span style="overflow: hidden; text-overflow: ellipsis;">${cleanName}</span><span class="edit-icon">✏️</span>`;
-                    nameDiv.setAttribute('data-original-name', cleanName);
-                    nameDiv.setAttribute('title', 'Cliquer pour renommer');
-                    
-                    const card = document.querySelector(`[data-image-id="${imageId}"]`);
-                    const urlDiv = card.querySelector('.image-url');
-                    if (urlDiv) {
-                        urlDiv.textContent = result.new_url;
-                        urlDiv.setAttribute('title', result.new_url);
-                    }
-                    
-                    alert('✅ Image renommée !');
+                if (data.success) {
+                    location.reload();
                 } else {
-                    alert('❌ Erreur : ' + result.error);
+                    alert('Erreur: ' + (data.error || 'Une erreur est survenue'));
                 }
-            } catch (e) {
-                alert('❌ Erreur réseau');
+            } catch (error) {
+                alert('Erreur réseau');
             }
-            
-            nameDiv.style.display = 'block';
-            input.remove();
         }
         
-        function copyUrl(url) {
-            navigator.clipboard.writeText(url).then(() => {
-                alert('✅ URL copiée dans le presse-papiers !');
+        // Copier le lien de partage
+        function copyShareLink(imageId, shareToken) {
+            const shareUrl = '<?= SITE_URL ?>/share.php?t=' + shareToken;
+            
+            navigator.clipboard.writeText(shareUrl).then(() => {
+                alert('✅ Lien copié dans le presse-papier !');
             }).catch(() => {
-                // Fallback pour anciens navigateurs
-                const input = document.createElement('input');
-                input.value = url;
-                document.body.appendChild(input);
-                input.select();
-                document.execCommand('copy');
-                document.body.removeChild(input);
-                alert('✅ URL copiée !');
+                prompt('Copier ce lien:', shareUrl);
             });
         }
-
+        
+        // Voir l'image
+        function viewImage(imageId) {
+            window.open('view.php?id=' + imageId, '_blank');
+        }
+        
+        // Télécharger l'image
+        function downloadImage(imageId) {
+            window.location.href = 'download.php?id=' + imageId;
+        }
+        
+        // Supprimer l'image (soft delete)
         async function deleteImage(imageId) {
-            if (!confirm('Êtes-vous sûr de vouloir supprimer cette image ?')) {
+            if (!confirm('Êtes-vous sûr de vouloir supprimer cette image ? Elle sera déplacée dans la corbeille.')) {
                 return;
             }
-
+            
             try {
-                const formData = new FormData();
-                formData.append('image_id', imageId);
-
-                const response = await fetch('delete-image.php', {
+                const response = await fetch('api/delete-image.php', {
                     method: 'POST',
-                    body: formData
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({ image_id: imageId })
                 });
-
-                const result = await response.json();
-
-                if (result.success) {
-                    // Retirer la carte de l'image
+                
+                const data = await response.json();
+                
+                if (data.success) {
+                    // Retirer visuellement la carte
                     const card = document.querySelector(`[data-image-id="${imageId}"]`);
-                    card.style.opacity = '0';
-                    setTimeout(() => {
-                        card.remove();
-                        // Recharger si plus d'images
-                        if (document.querySelectorAll('.image-card').length === 0) {
-                            location.reload();
-                        }
-                    }, 300);
-                    alert('✅ Image supprimée !');
+                    if (card) {
+                        card.style.animation = 'fadeOut 0.3s';
+                        setTimeout(() => card.remove(), 300);
+                    }
                 } else {
-                    alert('❌ Erreur : ' + result.error);
+                    alert('Erreur: ' + (data.error || 'Impossible de supprimer'));
                 }
-            } catch (e) {
-                alert('❌ Erreur réseau');
+            } catch (error) {
+                alert('Erreur réseau');
             }
         }
+        
+        // Animation de suppression
+        const style = document.createElement('style');
+        style.textContent = `
+            @keyframes fadeOut {
+                from { opacity: 1; transform: scale(1); }
+                to { opacity: 0; transform: scale(0.8); }
+            }
+        `;
+        document.head.appendChild(style);
     </script>
 </body>
 </html>
