@@ -12,7 +12,7 @@ $userId = $_SESSION['user_id'];
 $imageId = intval($_GET['id'] ?? 0);
 
 if ($imageId <= 0) {
-    header('Location: dashboard-enhanced.php');
+    header('Location: dashboard.php');
     exit;
 }
 
@@ -25,7 +25,7 @@ $stmt->execute([$imageId, $userId]);
 $image = $stmt->fetch();
 
 if (!$image) {
-    header('Location: dashboard-enhanced.php');
+    header('Location: dashboard.php');
     exit;
 }
 
@@ -174,7 +174,7 @@ $imageFilename = $image['original_filename'] ?? $image['filename'];
             <a href="<?= htmlspecialchars($image['file_path']) ?>" download class="btn btn-secondary">
                 ⬇️ Télécharger
             </a>
-            <a href="dashboard-enhanced.php" class="btn btn-primary">
+            <a href="dashboard.php" class="btn btn-primary">
                 ← Dashboard
             </a>
         </div>
