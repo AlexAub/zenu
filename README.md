@@ -11,7 +11,7 @@ Bienvenue dans **Zenu**, une collection d'outils simples et intuitifs pour simpl
 
 ## 🛠 Prérequis
 Avant de commencer, assurez-vous d'avoir les éléments suivants installés :
-- **PHP** (>= 7.4 recommandé)
+- **PHP** (>= 8.2 recommandé)
 - **MySQL** ou un autre système de gestion de base de données compatible
 - **Git** pour cloner le dépôt
 - Un compte Google pour configurer **reCAPTCHA**
@@ -53,7 +53,7 @@ mysql -u root -p nom_base < security-update.sql
 ### 4. Configurer reCAPTCHA
 Pour protéger vos formulaires contre les abus, configurez Google reCAPTCHA :
 1. Rendez-vous sur [https://www.google.com/recaptcha/admin](https://www.google.com/recaptcha/admin) pour créer un site.
-2. Sélectionnez **reCAPTCHA v2** ou **v3** selon vos besoins.
+2. Sélectionnez **reCAPTCHA v3**.
 3. Copiez les **clés publique et privée** fournies.
 4. Collez ces clés dans le fichier `email-config.php` aux emplacements indiqués.
 
