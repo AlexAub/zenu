@@ -1,4 +1,4 @@
-    <div class="main-content">
+<div class="main-content">
         <div class="image-container">
             <img src="<?= htmlspecialchars($image['file_path']) ?>" 
                  alt="<?= htmlspecialchars($imageFilename) ?>">
@@ -20,7 +20,22 @@
                 </div>
                 <div class="meta-item">
                     <span class="meta-label">Taille</span>
-                    <span class="meta-value"><?= formatFileSize($image['file_size'] ?? 0) ?></span>
+                    <span class="meta-value"><?php 
+                        if (!function_exists('formatFileSize')) {
+                            function formatFileSize($bytes) {
+                                if ($bytes >= 1073741824) {
+                                    return number_format($bytes / 1073741824, 2) . ' Go';
+                                } elseif ($bytes >= 1048576) {
+                                    return number_format($bytes / 1048576, 2) . ' Mo';
+                                } elseif ($bytes >= 1024) {
+                                    return number_format($bytes / 1024, 2) . ' Ko';
+                                } else {
+                                    return $bytes . ' octets';
+                                }
+                            }
+                        }
+                        echo formatFileSize($imageFileSize);
+                    ?></span>
                 </div>
                 <div class="meta-item">
                     <span class="meta-label">Vues</span>
@@ -61,6 +76,7 @@ $stmt->execute([$image['id']]);
 $imageUrl = SITE_URL . '/' . $image['file_path'];
 $imageFilename = $image['original_filename'] ?? $image['filename'];
 $imageDimensions = $image['dimensions'] ?? ($image['width'] . 'x' . $image['height']);
+$imageFileSize = $image['file_size'] ?? 0;
 ?>
 <!DOCTYPE html>
 <html lang="fr">
@@ -252,7 +268,7 @@ $imageDimensions = $image['dimensions'] ?? ($image['width'] . 'x' . $image['heig
     <div class="header">
         <div class="logo">🧘 Zenu</div>
         <div class="actions">
-            <a href="<?= htmlspecialchars($image['file_path']) ?>" download class="btn btn-secondary">
+            <a href="<?= htmlspecialchars($image['file_path']) ?>" download="<?= htmlspecialchars($imageFilename) ?>" class="btn btn-secondary">
                 ⬇️ Télécharger
             </a>
             <a href="register.php" class="btn btn-primary">
@@ -299,22 +315,5 @@ $imageDimensions = $image['dimensions'] ?? ($image['width'] . 'x' . $image['heig
             <a href="<?= SITE_URL ?>/register.php">Créez votre compte gratuitement</a>
         </p>
     </div>
-    
-    <?php
-    // Fonction locale si pas déjà chargée
-    if (!function_exists('formatFileSize')) {
-        function formatFileSize($bytes) {
-            if ($bytes >= 1073741824) {
-                return number_format($bytes / 1073741824, 2) . ' Go';
-            } elseif ($bytes >= 1048576) {
-                return number_format($bytes / 1048576, 2) . ' Mo';
-            } elseif ($bytes >= 1024) {
-                return number_format($bytes / 1024, 2) . ' Ko';
-            } else {
-                return $bytes . ' octets';
-            }
-        }
-    }
-    ?>
 </body>
 </html>

@@ -297,7 +297,7 @@ $stats = $stmt->fetch();
                     <h1>🗑️ Corbeille</h1>
                 </div>
                 <div class="nav">
-                    <a href="dashboard-enhanced.php">← Dashboard</a>
+                    <a href="dashboard.php">← Dashboard</a>
                     <a href="upload.php">📤 Upload</a>
                     <a href="logout.php">🚪 Déconnexion</a>
                 </div>

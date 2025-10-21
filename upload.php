@@ -89,7 +89,14 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_FILES['image'])) {
                     ]);
                     
                     $success = 'Image uploadée avec succès !';
-                    logSecurityAction($userId, 'image_uploaded', "File: $originalFilename, Size: " . formatFileSize($metadata['size']));
+                    
+                    // Logger seulement si la fonction existe
+                    if (function_exists('logSecurityAction')) {
+                        logSecurityAction($userId, 'image_uploaded', "File: $originalFilename, Size: " . formatFileSize($metadata['size']));
+                    }
+                    
+                    // Rediriger vers le dashboard après 2 secondes
+                    header("Refresh: 2; url=dashboard.php");
                 } else {
                     $error = 'Erreur lors de l\'enregistrement du fichier';
                 }

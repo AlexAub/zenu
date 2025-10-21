@@ -1,11 +1,12 @@
 <?php
+session_start();
+
 require_once '../config.php';
-require_once '../security.php';
 require_once '../image-functions.php';
 
 header('Content-Type: application/json');
 
-if (!isLoggedIn()) {
+if (!isset($_SESSION['user_id'])) {
     echo json_encode(['success' => false, 'error' => 'Non authentifié']);
     exit;
 }
@@ -27,7 +28,9 @@ if ($imageId <= 0) {
 $success = hardDeleteImage($pdo, $imageId, $userId);
 
 if ($success) {
-    logSecurityAction($userId, 'image_deleted_permanently', "Image $imageId permanently deleted");
+    if (function_exists('logSecurityAction')) {
+        logSecurityAction($userId, 'image_deleted_permanently', "Image $imageId permanently deleted");
+    }
     echo json_encode(['success' => true, 'message' => 'Image supprimée définitivement']);
 } else {
     echo json_encode(['success' => false, 'error' => 'Impossible de supprimer l\'image']);

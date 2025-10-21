@@ -1,11 +1,14 @@
 <?php
+// Démarrer la session en premier
+session_start();
+
 require_once '../config.php';
-require_once '../security.php';
 require_once '../image-functions.php';
 
 header('Content-Type: application/json');
 
-if (!isLoggedIn()) {
+// Vérifier la session
+if (!isset($_SESSION['user_id'])) {
     echo json_encode(['success' => false, 'error' => 'Non authentifié']);
     exit;
 }
@@ -37,8 +40,10 @@ if (!$stmt->fetch()) {
 // Changer la visibilité
 $result = toggleImageVisibility($pdo, $imageId, $userId, $isPublic);
 
-// Logger l'action
-logSecurityAction($userId, 'image_visibility_changed', "Image $imageId: " . ($isPublic ? 'public' : 'private'));
+// Logger l'action seulement si la fonction existe
+if (function_exists('logSecurityAction')) {
+    logSecurityAction($userId, 'image_visibility_changed', "Image $imageId: " . ($isPublic ? 'public' : 'private'));
+}
 
 echo json_encode($result);
 ?>

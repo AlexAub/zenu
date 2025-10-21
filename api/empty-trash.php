@@ -1,11 +1,12 @@
 <?php
+session_start();
+
 require_once '../config.php';
-require_once '../security.php';
 require_once '../image-functions.php';
 
 header('Content-Type: application/json');
 
-if (!isLoggedIn()) {
+if (!isset($_SESSION['user_id'])) {
     echo json_encode(['success' => false, 'error' => 'Non authentifié']);
     exit;
 }
@@ -45,7 +46,9 @@ foreach ($images as $image) {
 $stmt = $pdo->prepare("DELETE FROM images WHERE user_id = ? AND is_deleted = 1");
 $stmt->execute([$userId]);
 
-logSecurityAction($userId, 'trash_emptied', "$deletedCount images permanently deleted");
+if (function_exists('logSecurityAction')) {
+    logSecurityAction($userId, 'trash_emptied', "$deletedCount images permanently deleted");
+}
 
 echo json_encode([
     'success' => true,
