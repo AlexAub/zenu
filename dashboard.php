@@ -54,18 +54,21 @@ $stmt->execute($countBindings);
 $totalImages = $stmt->fetch()['total'];
 $totalPages = ceil($totalImages / $perPage);
 
-// Récupérer les stats utilisateur
+        // Récupérer les stats utilisateur
 $stmt = $pdo->prepare("
     SELECT 
         COUNT(*) as total_images,
-        SUM(CASE WHEN is_public = 1 THEN 1 ELSE 0 END) as public_images,
-        SUM(file_size) as total_size,
-        SUM(views) as total_views
+        SUM(file_size) as total_size
     FROM images 
     WHERE user_id = ? AND is_deleted = 0
 ");
 $stmt->execute([$userId]);
 $stats = $stmt->fetch();
+
+// Récupérer le username pour les URLs propres
+$stmt = $pdo->prepare("SELECT username FROM users WHERE id = ?");
+$stmt->execute([$userId]);
+$currentUser = $stmt->fetch();
 ?>
 <!DOCTYPE html>
 <html lang="fr">
@@ -274,6 +277,7 @@ $stats = $stmt->fetch();
             align-items: center;
             justify-content: center;
             position: relative;
+            cursor: pointer;
         }
         
         .image-preview img {
@@ -444,6 +448,128 @@ $stats = $stmt->fetch();
                 grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
             }
         }
+        
+        /* Modal pour voir l'image */
+        .modal {
+            display: none;
+            position: fixed;
+            z-index: 1000;
+            left: 0;
+            top: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.95);
+        }
+        
+        .modal.show {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+        
+        .modal-content {
+            max-width: 90vw;
+            max-height: 90vh;
+            position: relative;
+        }
+        
+        .modal-content img {
+            max-width: 100%;
+            max-height: 90vh;
+            display: block;
+            border-radius: 8px;
+        }
+        
+        .modal-close {
+            position: absolute;
+            top: -40px;
+            right: 0;
+            color: white;
+            font-size: 36px;
+            font-weight: bold;
+            cursor: pointer;
+            background: none;
+            border: none;
+            padding: 0;
+            width: 40px;
+            height: 40px;
+            line-height: 40px;
+            text-align: center;
+        }
+        
+        .modal-close:hover {
+            color: #667eea;
+        }
+        
+        /* Modal pour renommer */
+        .rename-modal {
+            display: none;
+            position: fixed;
+            z-index: 1001;
+            left: 0;
+            top: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.7);
+            align-items: center;
+            justify-content: center;
+        }
+        
+        .rename-modal.show {
+            display: flex;
+        }
+        
+        .rename-modal-content {
+            background: white;
+            padding: 30px;
+            border-radius: 12px;
+            max-width: 500px;
+            width: 90%;
+        }
+        
+        .rename-modal-content h3 {
+            margin-bottom: 20px;
+            color: #667eea;
+        }
+        
+        .rename-modal-content input {
+            width: 100%;
+            padding: 12px;
+            border: 2px solid #e0e0e0;
+            border-radius: 6px;
+            font-size: 15px;
+            margin-bottom: 20px;
+        }
+        
+        .rename-modal-content input:focus {
+            outline: none;
+            border-color: #667eea;
+        }
+        
+        .rename-modal-actions {
+            display: flex;
+            gap: 10px;
+        }
+        
+        .rename-modal-actions button {
+            flex: 1;
+            padding: 12px;
+            border: none;
+            border-radius: 6px;
+            font-size: 14px;
+            font-weight: 600;
+            cursor: pointer;
+        }
+        
+        .btn-confirm {
+            background: #667eea;
+            color: white;
+        }
+        
+        .btn-cancel {
+            background: #e0e0e0;
+            color: #333;
+        }
     </style>
 </head>
 <body>
@@ -455,6 +581,7 @@ $stats = $stmt->fetch();
                 </div>
                 <div class="nav">
                     <a href="upload.php">📤 Upload</a>
+                    <a href="convertisseur-prive.php">🔄 Convertisseur</a>
                     <a href="trash.php">🗑️ Corbeille</a>
                     <a href="logout.php">🚪 Déconnexion</a>
                 </div>
@@ -470,16 +597,8 @@ $stats = $stmt->fetch();
                 <div class="stat-label">Images totales</div>
             </div>
             <div class="stat-card">
-                <div class="stat-value"><?= number_format($stats['public_images']) ?></div>
-                <div class="stat-label">Images publiques</div>
-            </div>
-            <div class="stat-card">
                 <div class="stat-value"><?= formatFileSize($stats['total_size'] ?? 0) ?></div>
                 <div class="stat-label">Espace utilisé</div>
-            </div>
-            <div class="stat-card">
-                <div class="stat-value"><?= number_format($stats['total_views']) ?></div>
-                <div class="stat-label">Vues totales</div>
             </div>
         </div>
         
@@ -498,8 +617,6 @@ $stats = $stmt->fetch();
                     <div class="filter-group">
                         <select name="visibility" onchange="this.form.submit()">
                             <option value="">Toutes</option>
-                            <option value="public" <?= $visibility === 'public' ? 'selected' : '' ?>>Publiques</option>
-                            <option value="private" <?= $visibility === 'private' ? 'selected' : '' ?>>Privées</option>
                         </select>
                         
                         <select name="sort" onchange="this.form.submit()">
@@ -536,44 +653,36 @@ $stats = $stmt->fetch();
         <?php else: ?>
             <div class="images-grid">
                 <?php foreach ($images as $image): ?>
+                    <?php
+                    // Générer l'URL propre : zenu.fr/username/image-name.jpg
+                    $cleanFilename = $image['original_filename'] ?? $image['filename'];
+                    $prettyUrl = SITE_URL . '/' . $currentUser['username'] . '/' . urlencode($cleanFilename);
+                    ?>
                     <div class="image-card" data-image-id="<?= $image['id'] ?>">
                         <div class="image-preview">
-                            <div class="visibility-toggle" 
-                                 onclick="toggleVisibility(<?= $image['id'] ?>, <?= $image['is_public'] ?>)"
-                                 title="<?= $image['is_public'] ? 'Rendre privée' : 'Rendre publique' ?>">
-                                <?= $image['is_public'] ? '🔓' : '🔒' ?>
-                            </div>
                             <img src="<?= htmlspecialchars($image['thumbnail_path'] ?? $image['file_path']) ?>" 
-                                 alt="<?= htmlspecialchars($image['original_filename'] ?? $image['filename']) ?>"
-                                 loading="lazy">
+                                 alt="<?= htmlspecialchars($cleanFilename) ?>"
+                                 loading="lazy"
+                                 onclick="viewImage(<?= $image['id'] ?>, '<?= htmlspecialchars($image['file_path'], ENT_QUOTES) ?>')">
                         </div>
                         <div class="image-info">
-                            <div class="image-name" title="<?= htmlspecialchars($image['original_filename'] ?? $image['filename']) ?>">
-                                <?= htmlspecialchars($image['original_filename'] ?? $image['filename']) ?>
+                            <div class="image-name" title="<?= htmlspecialchars($cleanFilename) ?>">
+                                <?= htmlspecialchars($cleanFilename) ?>
                             </div>
                             <div class="image-meta">
                                 <span><?= $image['dimensions'] ?? ($image['width'] . 'x' . $image['height']) ?></span>
                                 <span><?= formatFileSize($image['file_size'] ?? 0) ?></span>
                             </div>
-                            <div class="image-badges">
-                                <span class="badge <?= $image['is_public'] ? 'badge-public' : 'badge-private' ?>">
-                                    <?= $image['is_public'] ? '🌐 Public' : '🔒 Privé' ?>
-                                </span>
-                                <?php if ($image['views'] > 0): ?>
-                                    <span class="badge" style="background: #e3f2fd; color: #1976d2;">
-                                        👁️ <?= $image['views'] ?>
-                                    </span>
-                                <?php endif; ?>
-                            </div>
                             <div class="image-actions">
-                                <button class="icon-btn" onclick="viewImage(<?= $image['id'] ?>)" title="Voir">
+                                <button class="icon-btn" onclick="viewImage(<?= $image['id'] ?>, '<?= htmlspecialchars($image['file_path'], ENT_QUOTES) ?>')" title="Voir en grand">
                                     👁️
                                 </button>
-                                <?php if ($image['is_public']): ?>
-                                    <button class="icon-btn" onclick="copyShareLink(<?= $image['id'] ?>, '<?= $image['share_token'] ?>')" title="Copier lien">
-                                        🔗
-                                    </button>
-                                <?php endif; ?>
+                                <button class="icon-btn" onclick="renameImage(<?= $image['id'] ?>, '<?= htmlspecialchars($cleanFilename, ENT_QUOTES) ?>')" title="Renommer">
+                                    ✏️
+                                </button>
+                                <button class="icon-btn" onclick="copyDirectLink('<?= htmlspecialchars($prettyUrl, ENT_QUOTES) ?>')" title="Copier lien">
+                                    🔗
+                                </button>
                                 <button class="icon-btn" onclick="downloadImage(<?= $image['id'] ?>)" title="Télécharger">
                                     ⬇️
                                 </button>
@@ -620,45 +729,112 @@ $stats = $stmt->fetch();
         <?php endif; ?>
     </div>
     
+    <!-- Modal pour voir l'image -->
+    <div class="modal" id="imageModal" onclick="closeModal()">
+        <div class="modal-content" onclick="event.stopPropagation()">
+            <button class="modal-close" onclick="closeModal()">×</button>
+            <img id="modalImage" src="" alt="Image">
+        </div>
+    </div>
+    
+    <!-- Modal pour renommer -->
+    <div class="rename-modal" id="renameModal">
+        <div class="rename-modal-content">
+            <h3>✏️ Renommer l'image</h3>
+            <input type="text" id="renameInput" placeholder="Nouveau nom">
+            <div class="rename-modal-actions">
+                <button class="btn-confirm" onclick="confirmRename()">Confirmer</button>
+                <button class="btn-cancel" onclick="closeRenameModal()">Annuler</button>
+            </div>
+        </div>
+    </div>
+    
     <script>
-        // Toggle visibilité public/privé
-        async function toggleVisibility(imageId, isCurrentlyPublic) {
-            const newState = !isCurrentlyPublic;
+        let currentRenameId = null;
+        
+        // Voir l'image en grand
+        function viewImage(imageId, imagePath) {
+            const modal = document.getElementById('imageModal');
+            const modalImage = document.getElementById('modalImage');
+            modalImage.src = imagePath;
+            modal.classList.add('show');
+        }
+        
+        function closeModal() {
+            document.getElementById('imageModal').classList.remove('show');
+        }
+        
+        // Fermer avec Echap
+        document.addEventListener('keydown', function(e) {
+            if (e.key === 'Escape') {
+                closeModal();
+                closeRenameModal();
+            }
+        });
+        
+        // Copier le lien direct de l'image
+        function copyDirectLink(prettyUrl) {
+            navigator.clipboard.writeText(prettyUrl).then(() => {
+                alert('✅ Lien copié !\n' + prettyUrl);
+            }).catch(() => {
+                prompt('Copier ce lien:', prettyUrl);
+            });
+        }
+        
+        // Renommer l'image
+        function renameImage(imageId, currentName) {
+            currentRenameId = imageId;
+            document.getElementById('renameInput').value = currentName;
+            document.getElementById('renameModal').classList.add('show');
+            document.getElementById('renameInput').focus();
+        }
+        
+        function closeRenameModal() {
+            document.getElementById('renameModal').classList.remove('show');
+            currentRenameId = null;
+        }
+        
+        async function confirmRename() {
+            const newName = document.getElementById('renameInput').value.trim();
+            
+            if (!newName) {
+                alert('Le nom ne peut pas être vide');
+                return;
+            }
             
             try {
-                const response = await fetch('api/toggle-visibility.php', {
+                const response = await fetch('api/rename-image.php', {
                     method: 'POST',
                     headers: {
                         'Content-Type': 'application/json',
                     },
                     body: JSON.stringify({
-                        image_id: imageId,
-                        is_public: newState
+                        image_id: currentRenameId,
+                        new_name: newName
                     })
                 });
                 
                 const data = await response.json();
                 
                 if (data.success) {
+                    alert('✅ Image renommée avec succès !');
                     location.reload();
                 } else {
-                    alert('Erreur: ' + (data.error || 'Une erreur est survenue'));
+                    alert('Erreur: ' + (data.error || 'Impossible de renommer'));
                 }
             } catch (error) {
                 alert('Erreur réseau');
             }
+            
+            closeRenameModal();
         }
         
-        // Copier le lien de partage
-        function copyShareLink(imageId, shareToken) {
-            const shareUrl = '<?= SITE_URL ?>/share.php?t=' + shareToken;
-            
-            navigator.clipboard.writeText(shareUrl).then(() => {
-                alert('✅ Lien copié dans le presse-papier !');
-            }).catch(() => {
-                prompt('Copier ce lien:', shareUrl);
-            });
-        }
+        // Enter pour valider le renommage
+        document.getElementById('renameInput').addEventListener('keypress', function(e) {
+            if (e.key === 'Enter') {
+                confirmRename();
+            }
+        });
         
         // Voir l'image
         function viewImage(imageId) {

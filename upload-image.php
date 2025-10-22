@@ -1,10 +1,11 @@
 <?php
+session_start();
 require_once 'config.php';
 
 header('Content-Type: application/json');
 
 // Vérifier si l'utilisateur est connecté
-if (!isLoggedIn()) {
+if (!isset($_SESSION['user_id'])) {
     echo json_encode(['success' => false, 'error' => 'Non authentifié']);
     exit;
 }
@@ -23,8 +24,8 @@ if (!$user) {
 
 $username = $user['username'];
 
-// Vérifier les quotas
-$stmt = $pdo->prepare("SELECT COUNT(*) as count, COALESCE(SUM(size), 0) as total_size FROM images WHERE user_id = ?");
+// Vérifier les quotas (utiliser file_size au lieu de size)
+$stmt = $pdo->prepare("SELECT COUNT(*) as count, COALESCE(SUM(file_size), 0) as total_size FROM images WHERE user_id = ?");
 $stmt->execute([$user_id]);
 $quotas = $stmt->fetch();
 
@@ -86,33 +87,16 @@ if (!in_array($mime_type, $allowed_types)) {
 
 // Créer le dossier utilisateur si nécessaire
 $user_dir = "uploads/user_" . $user_id;
-if (!file_exists($user_dir)) {
+if (!is_dir($user_dir)) {
     mkdir($user_dir, 0755, true);
 }
 
-// Nettoyer le nom de fichier original
-$original_clean = preg_replace('/[^a-zA-Z0-9_-]/', '-', pathinfo($original_filename, PATHINFO_FILENAME));
-$original_clean = strtolower($original_clean);
-$original_clean = preg_replace('/-+/', '-', $original_clean); // Éviter les tirets multiples
-$original_clean = trim($original_clean, '-'); // Enlever les tirets au début/fin
-$original_clean = substr($original_clean, 0, 100); // Limiter la longueur
-
-if (empty($original_clean)) {
-    $original_clean = 'image';
+// Générer un nom de fichier unique
+$extension = pathinfo($original_filename, PATHINFO_EXTENSION);
+if (empty($extension)) {
+    $extension = 'jpg'; // Extension par défaut
 }
-
-// Vérifier si un fichier avec ce nom existe déjà pour cet utilisateur
-$stmt = $pdo->prepare("SELECT COUNT(*) FROM images WHERE user_id = ? AND filename LIKE ?");
-$stmt->execute([$user_id, $original_clean . '%']);
-$count = $stmt->fetchColumn();
-
-// Si le nom existe déjà, ajouter un numéro
-if ($count > 0) {
-    $filename = $original_clean . '-' . ($count + 1) . '.jpg';
-} else {
-    $filename = $original_clean . '.jpg';
-}
-
+$filename = uniqid() . '.' . $extension;
 $filepath = $user_dir . '/' . $filename;
 
 // Déplacer le fichier
@@ -121,11 +105,11 @@ if (!move_uploaded_file($file['tmp_name'], $filepath)) {
     exit;
 }
 
-// Enregistrer dans la BDD
+// Enregistrer en BDD (adapter selon votre structure de table)
 try {
     $stmt = $pdo->prepare("
-        INSERT INTO images (user_id, filename, original_filename, path, size, width, height)
-        VALUES (?, ?, ?, ?, ?, ?, ?)
+        INSERT INTO images (user_id, filename, original_filename, file_path, width, height, file_size, mime_type, created_at) 
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, NOW())
     ");
     
     $stmt->execute([
@@ -133,24 +117,30 @@ try {
         $filename,
         $original_filename,
         $filepath,
-        $file['size'],
         $width,
-        $height
+        $height,
+        $file['size'],
+        $mime_type
     ]);
     
-    // Construire l'URL propre avec username
-    $url = SITE_URL . '/i/' . $username . '/' . $filename;
+    $image_id = $pdo->lastInsertId();
+    
+    // Générer l'URL publique
+    $url = 'https://zenu.fr/' . $filepath;
     
     echo json_encode([
         'success' => true,
         'url' => $url,
+        'image_id' => $image_id,
         'filename' => $filename,
         'size' => $file['size']
     ]);
     
-} catch(PDOException $e) {
-    // Supprimer le fichier en cas d'erreur BDD
-    unlink($filepath);
-    echo json_encode(['success' => false, 'error' => 'Erreur base de données']);
+} catch (PDOException $e) {
+    // En cas d'erreur, supprimer le fichier uploadé
+    if (file_exists($filepath)) {
+        unlink($filepath);
+    }
+    echo json_encode(['success' => false, 'error' => 'Erreur base de données: ' . $e->getMessage()]);
 }
 ?>

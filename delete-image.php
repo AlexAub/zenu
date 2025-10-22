@@ -1,9 +1,10 @@
 <?php
+session_start();
 require_once 'config.php';
 
 header('Content-Type: application/json');
 
-if (!isLoggedIn()) {
+if (!isset($_SESSION['user_id'])) {
     echo json_encode(['success' => false, 'error' => 'Non authentifié']);
     exit;
 }
@@ -27,8 +28,8 @@ if (!$image) {
 }
 
 // Supprimer le fichier physique
-if (file_exists($image['path'])) {
-    unlink($image['path']);
+if (file_exists($image['file_path'])) {
+    unlink($image['file_path']);
 }
 
 // Supprimer de la BDD

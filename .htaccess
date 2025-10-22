@@ -17,8 +17,8 @@ RewriteEngine On
 RewriteCond %{HTTPS} off
 RewriteRule ^(.*)$ https://%{HTTP_HOST}%{REQUEST_URI} [L,R=301]
 
-# Réécriture pour les URLs d'images propres
-# /i/username/filename.jpg -> /i.php
+# URL propre pour les images : /username/image.jpg -> image-redirect.php
 RewriteCond %{REQUEST_FILENAME} !-f
 RewriteCond %{REQUEST_FILENAME} !-d
-RewriteRule ^i/([a-zA-Z0-9_-]+)/([a-zA-Z0-9_.-]+)$ i.php [L,QSA]
+RewriteRule ^([a-zA-Z0-9_-]+)/(.+\.(jpg|jpeg|png|gif|webp))$ image-redirect.php?username=$1&filename=$2 [L,QSA]
+

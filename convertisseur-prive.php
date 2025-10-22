@@ -1,13 +1,23 @@
 <?php
+session_start();
 require_once 'config.php';
 
 // Vérifier si l'utilisateur est connecté
-if (!isLoggedIn()) {
+if (!isset($_SESSION['user_id'])) {
     header('Location: login.php');
     exit;
 }
 
-$user = getCurrentUser();
+// Récupérer l'utilisateur
+$stmt = $pdo->prepare("SELECT username FROM users WHERE id = ?");
+$stmt->execute([$_SESSION['user_id']]);
+$user = $stmt->fetch();
+
+if (!$user) {
+    session_destroy();
+    header('Location: login.php');
+    exit;
+}
 ?>
 <!DOCTYPE html>
 <html lang="fr">
