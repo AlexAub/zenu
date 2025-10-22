@@ -380,7 +380,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_FILES['image'])) {
         </form>
         
         <div class="back-link">
-            <a href="dashboard-enhanced.php">← Retour au dashboard</a>
+            <a href="dashboard.php">← Retour au dashboard</a>
         </div>
     </div>
     
