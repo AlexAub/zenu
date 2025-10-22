@@ -1,4 +1,3 @@
-
 # Configuration Apache pour Zenu
 
 # Définir index.php comme page par défaut
@@ -17,8 +16,16 @@ RewriteEngine On
 RewriteCond %{HTTPS} off
 RewriteRule ^(.*)$ https://%{HTTP_HOST}%{REQUEST_URI} [L,R=301]
 
-# URL propre pour les images : /username/image.jpg -> image-redirect.php
+# ===== RÈGLES POUR LES IMAGES =====
+
+# Règle 1: URL avec extension (prioritaire)
+# Ex: /vapula/artifice_ours.png
 RewriteCond %{REQUEST_FILENAME} !-f
 RewriteCond %{REQUEST_FILENAME} !-d
 RewriteRule ^([a-zA-Z0-9_-]+)/(.+\.(jpg|jpeg|png|gif|webp))$ image-redirect.php?username=$1&filename=$2 [L,QSA]
 
+# Règle 2: URL sans extension (nouveau)
+# Ex: /vapula/1000010148 ou /vapula/artifice_ours
+RewriteCond %{REQUEST_FILENAME} !-f
+RewriteCond %{REQUEST_FILENAME} !-d
+RewriteRule ^([a-zA-Z0-9_-]+)/([a-zA-Z0-9_-]+)$ image-redirect.php?username=$1&image_id=$2 [L,QSA]
