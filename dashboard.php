@@ -661,9 +661,9 @@ $currentUser = $stmt->fetch();
                     <div class="image-card" data-image-id="<?= $image['id'] ?>">
                         <div class="image-preview">
                             <img src="<?= htmlspecialchars($image['thumbnail_path'] ?? $image['file_path']) ?>" 
-                                 alt="<?= htmlspecialchars($cleanFilename) ?>"
-                                 loading="lazy"
-                                 onclick="viewImage(<?= $image['id'] ?>, '<?= htmlspecialchars($image['file_path'], ENT_QUOTES) ?>')">
+								alt="<?= htmlspecialchars($cleanFilename) ?>"
+								loading="lazy"
+								onclick="viewImage(<?= $image['id'] ?>, '<?= htmlspecialchars($image['file_path'], ENT_QUOTES) ?>', '<?= htmlspecialchars($prettyUrl, ENT_QUOTES) ?>')">
                         </div>
                         <div class="image-info">
                             <div class="image-name" title="<?= htmlspecialchars($cleanFilename) ?>">
@@ -674,9 +674,9 @@ $currentUser = $stmt->fetch();
                                 <span><?= formatFileSize($image['file_size'] ?? 0) ?></span>
                             </div>
                             <div class="image-actions">
-                                <button class="icon-btn" onclick="viewImage(<?= $image['id'] ?>, '<?= htmlspecialchars($image['file_path'], ENT_QUOTES) ?>')" title="Voir en grand">
-                                    👁️
-                                </button>
+                                <button class="icon-btn" onclick="viewImage(<?= $image['id'] ?>, '<?= htmlspecialchars($image['file_path'], ENT_QUOTES) ?>', '<?= htmlspecialchars($prettyUrl, ENT_QUOTES) ?>')" title="Voir en grand">
+									👁️
+								</button>
                                 <button class="icon-btn" onclick="renameImage(<?= $image['id'] ?>, '<?= htmlspecialchars($cleanFilename, ENT_QUOTES) ?>')" title="Renommer">
                                     ✏️
                                 </button>
@@ -729,13 +729,6 @@ $currentUser = $stmt->fetch();
         <?php endif; ?>
     </div>
     
-    <!-- Modal pour voir l'image -->
-    <div class="modal" id="imageModal" onclick="closeModal()">
-        <div class="modal-content" onclick="event.stopPropagation()">
-            <button class="modal-close" onclick="closeModal()">×</button>
-            <img id="modalImage" src="" alt="Image">
-        </div>
-    </div>
     
     <!-- Modal pour renommer -->
     <div class="rename-modal" id="renameModal">
@@ -752,17 +745,12 @@ $currentUser = $stmt->fetch();
     <script>
         let currentRenameId = null;
         
-        // Voir l'image en grand
-        function viewImage(imageId, imagePath) {
-            const modal = document.getElementById('imageModal');
-            const modalImage = document.getElementById('modalImage');
-            modalImage.src = imagePath;
-            modal.classList.add('show');
-        }
+        // Voir l'image en grand - Ouvre directement l'URL propre
+		function viewImage(imageId, imagePath, prettyUrl) {
+		window.open(prettyUrl, '_blank');
+		}
         
-        function closeModal() {
-            document.getElementById('imageModal').classList.remove('show');
-        }
+
         
         // Fermer avec Echap
         document.addEventListener('keydown', function(e) {

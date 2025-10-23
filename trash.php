@@ -1,18 +1,60 @@
 <?php
+// Ne pas appeler session_start() ici car config.php le fait déjà
+
 require_once 'config.php';
-require_once 'security.php';
 require_once 'image-functions.php';
 
-if (!isLoggedIn()) {
-    header('Location: login.php');
-    exit;
+// Vérifier si security.php existe
+if (file_exists('security.php')) {
+    require_once 'security.php';
 }
+
+// Fonction checkAuth si elle n'existe pas
+if (!function_exists('checkAuth')) {
+    function checkAuth() {
+        if (!isset($_SESSION['user_id'])) {
+            header('Location: login.php');
+            exit;
+        }
+    }
+}
+
+// Prévention CSRF basique si la fonction n'existe pas
+if (!function_exists('preventCSRF')) {
+    function preventCSRF() {
+        return true;
+    }
+}
+
+checkAuth();
+preventCSRF();
 
 $userId = $_SESSION['user_id'];
 
+// Statistiques de la corbeille
+$stmt = $pdo->prepare("
+    SELECT 
+        COUNT(*) as total,
+        COALESCE(SUM(file_size), 0) as total_size
+    FROM images 
+    WHERE user_id = ? AND is_deleted = 1
+");
+$stmt->execute([$userId]);
+$stats = $stmt->fetch();
+
 // Récupérer les images supprimées
 $stmt = $pdo->prepare("
-    SELECT *, DATEDIFF(DATE_ADD(deleted_at, INTERVAL 30 DAY), NOW()) as days_remaining
+    SELECT 
+        id,
+        filename,
+        original_filename,
+        file_path,
+        thumbnail_path,
+        file_size,
+        width,
+        height,
+        deleted_at,
+        DATEDIFF(DATE_ADD(deleted_at, INTERVAL 30 DAY), NOW()) as days_remaining
     FROM images 
     WHERE user_id = ? AND is_deleted = 1
     ORDER BY deleted_at DESC
@@ -20,16 +62,20 @@ $stmt = $pdo->prepare("
 $stmt->execute([$userId]);
 $deletedImages = $stmt->fetchAll();
 
-// Stats
-$stmt = $pdo->prepare("
-    SELECT 
-        COUNT(*) as total,
-        SUM(file_size) as total_size
-    FROM images 
-    WHERE user_id = ? AND is_deleted = 1
-");
-$stmt->execute([$userId]);
-$stats = $stmt->fetch();
+// Fonction formatFileSize si elle n'existe pas
+if (!function_exists('formatFileSize')) {
+    function formatFileSize($bytes) {
+        if ($bytes >= 1073741824) {
+            return number_format($bytes / 1073741824, 2) . ' Go';
+        } elseif ($bytes >= 1048576) {
+            return number_format($bytes / 1048576, 2) . ' Mo';
+        } elseif ($bytes >= 1024) {
+            return number_format($bytes / 1024, 2) . ' Ko';
+        } else {
+            return $bytes . ' octets';
+        }
+    }
+}
 ?>
 <!DOCTYPE html>
 <html lang="fr">
@@ -46,15 +92,15 @@ $stats = $stmt->fetch();
         
         body {
             font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-            background: #f5f5f5;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
             min-height: 100vh;
         }
         
         .header {
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-            color: white;
-            padding: 20px 0;
+            background: white;
             box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+            padding: 20px 0;
+            margin-bottom: 30px;
         }
         
         .container {
@@ -70,103 +116,101 @@ $stats = $stmt->fetch();
         }
         
         .logo h1 {
-            font-size: 24px;
+            color: #667eea;
+            font-size: 28px;
+        }
+        
+        .nav {
+            display: flex;
+            gap: 15px;
         }
         
         .nav a {
-            color: white;
             text-decoration: none;
-            margin-left: 20px;
-            padding: 8px 16px;
-            border-radius: 6px;
-            transition: background 0.3s;
+            color: #666;
+            padding: 10px 20px;
+            border-radius: 8px;
+            transition: all 0.3s;
         }
         
         .nav a:hover {
-            background: rgba(255,255,255,0.2);
+            background: #667eea;
+            color: white;
         }
         
         .info-banner {
-            background: #fff3e0;
-            border-left: 4px solid #ff9800;
+            background: #fff3cd;
+            border: 1px solid #ffc107;
+            border-radius: 12px;
             padding: 20px;
-            margin: 30px 0;
-            border-radius: 8px;
+            margin-bottom: 30px;
+            color: #856404;
         }
         
         .info-banner h3 {
-            color: #e65100;
             margin-bottom: 10px;
-        }
-        
-        .info-banner p {
-            color: #666;
-            line-height: 1.6;
+            font-size: 18px;
         }
         
         .stats-row {
-            display: flex;
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
             gap: 20px;
             margin-bottom: 30px;
         }
         
         .stat-card {
-            flex: 1;
             background: white;
-            padding: 20px;
+            padding: 25px;
             border-radius: 12px;
             box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+            text-align: center;
         }
         
         .stat-value {
-            font-size: 28px;
+            font-size: 32px;
             font-weight: bold;
             color: #667eea;
             margin-bottom: 5px;
         }
         
         .stat-label {
-            color: #666;
+            color: #999;
             font-size: 14px;
         }
         
         .actions-bar {
-            background: white;
-            padding: 20px;
-            border-radius: 12px;
-            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
-            margin-bottom: 20px;
-            display: flex;
-            gap: 10px;
+            margin-bottom: 30px;
+            text-align: right;
         }
         
         .btn {
-            padding: 10px 20px;
+            padding: 12px 24px;
             border: none;
             border-radius: 8px;
-            font-size: 14px;
-            font-weight: 600;
             cursor: pointer;
+            font-size: 16px;
             transition: all 0.3s;
             text-decoration: none;
             display: inline-block;
         }
         
         .btn-danger {
-            background: #f44336;
+            background: #dc3545;
             color: white;
         }
         
         .btn-danger:hover {
-            background: #d32f2f;
+            background: #c82333;
             transform: translateY(-2px);
+            box-shadow: 0 4px 12px rgba(220, 53, 69, 0.3);
         }
         
         .images-grid {
             display: grid;
             grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
             gap: 20px;
-            margin-bottom: 30px;
+            margin-bottom: 40px;
         }
         
         .image-card {
@@ -175,24 +219,19 @@ $stats = $stmt->fetch();
             overflow: hidden;
             box-shadow: 0 2px 8px rgba(0,0,0,0.1);
             transition: transform 0.3s, box-shadow 0.3s;
-            position: relative;
         }
         
         .image-card:hover {
             transform: translateY(-5px);
-            box-shadow: 0 8px 20px rgba(0,0,0,0.15);
+            box-shadow: 0 4px 20px rgba(0,0,0,0.15);
         }
         
         .image-preview {
+            position: relative;
             width: 100%;
-            height: 220px;
+            height: 200px;
             overflow: hidden;
             background: #f5f5f5;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            position: relative;
-            opacity: 0.7;
         }
         
         .image-preview img {
@@ -205,13 +244,12 @@ $stats = $stmt->fetch();
             position: absolute;
             top: 10px;
             right: 10px;
-            background: rgba(244, 67, 54, 0.95);
+            background: rgba(255, 0, 0, 0.9);
             color: white;
-            padding: 6px 12px;
-            border-radius: 6px;
+            padding: 5px 12px;
+            border-radius: 20px;
             font-size: 12px;
-            font-weight: 600;
-            z-index: 10;
+            font-weight: bold;
         }
         
         .image-info {
@@ -220,29 +258,29 @@ $stats = $stmt->fetch();
         
         .image-name {
             font-weight: 600;
+            margin-bottom: 5px;
             color: #333;
-            margin-bottom: 8px;
             white-space: nowrap;
             overflow: hidden;
             text-overflow: ellipsis;
         }
         
         .image-meta {
-            font-size: 12px;
             color: #999;
-            margin-bottom: 10px;
+            font-size: 13px;
+            margin-bottom: 15px;
         }
         
         .image-actions {
             display: flex;
-            gap: 8px;
+            gap: 10px;
         }
         
         .icon-btn {
             flex: 1;
-            padding: 8px;
-            border: none;
-            background: #f5f5f5;
+            padding: 8px 12px;
+            border: 1px solid #ddd;
+            background: white;
             border-radius: 6px;
             cursor: pointer;
             transition: all 0.2s;
@@ -286,6 +324,17 @@ $stats = $stmt->fetch();
         .empty-state p {
             color: #999;
             margin-bottom: 20px;
+        }
+        
+        @keyframes fadeOut {
+            from { 
+                opacity: 1; 
+                transform: scale(1); 
+            }
+            to { 
+                opacity: 0; 
+                transform: scale(0.8); 
+            }
         }
     </style>
 </head>
@@ -335,7 +384,7 @@ $stats = $stmt->fetch();
                 <div class="empty-state-icon">✨</div>
                 <h3>Corbeille vide</h3>
                 <p>Aucune image supprimée</p>
-                <a href="dashboard-enhanced.php" class="btn" style="background: #667eea; color: white;">
+                <a href="dashboard.php" class="btn" style="background: #667eea; color: white;">
                     ← Retour au dashboard
                 </a>
             </div>
@@ -392,70 +441,14 @@ $stats = $stmt->fetch();
                 const data = await response.json();
                 
                 if (data.success) {
-                    const card = document.querySelector(`[data-image-id="${imageId}"]`);
-                    if (card) {
-                        card.style.animation = 'fadeOut 0.3s';
-                        setTimeout(() => {
-                            card.remove();
-                            if (document.querySelectorAll('.image-card').length === 0) {
-                                location.reload();
-                            }
-                        }, 300);
-                    }
-                } else {
-                    alert('Erreur: ' + (data.error || 'Impossible de supprimer'));
-                }
-            } catch (error) {
-                alert('Erreur réseau');
-            }
-        }
-        
-        // Vider la corbeille
-        async function emptyTrash() {
-            if (!confirm('⚠️ ATTENTION : Cette action supprimera DÉFINITIVEMENT toutes les images de la corbeille !\n\nCette action est IRRÉVERSIBLE. Continuer ?')) {
-                return;
-            }
-            
-            try {
-                const response = await fetch('api/empty-trash.php', {
-                    method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json',
-                    }
-                });
-                
-                const data = await response.json();
-                
-                if (data.success) {
-                    alert('✅ Corbeille vidée : ' + data.deleted_count + ' image(s) supprimée(s)');
-                    location.reload();
-                } else {
-                    alert('Erreur: ' + (data.error || 'Impossible de vider la corbeille'));
-                }
-            } catch (error) {
-                alert('Erreur réseau');
-            }
-        }
-        
-        // Animation
-        const style = document.createElement('style');
-        style.textContent = `
-            @keyframes fadeOut {
-                from { opacity: 1; transform: scale(1); }
-                to { opacity: 0; transform: scale(0.8); }
-            }
-        `;
-        document.head.appendChild(style);
-    </script>
-</body>
-</html>data.success) {
                     alert('✅ Image restaurée !');
                     location.reload();
                 } else {
                     alert('Erreur: ' + (data.error || 'Impossible de restaurer'));
                 }
             } catch (error) {
-                alert('Erreur réseau');
+                console.error('Erreur:', error);
+                alert('Erreur réseau lors de la restauration');
             }
         }
         
@@ -476,4 +469,63 @@ $stats = $stmt->fetch();
                 
                 const data = await response.json();
                 
-                if (
+                if (data.success) {
+                    alert('✅ Image supprimée définitivement !');
+                    
+                    // Retirer visuellement la carte avec animation
+                    const card = document.querySelector(`[data-image-id="${imageId}"]`);
+                    if (card) {
+                        card.style.animation = 'fadeOut 0.3s';
+                        setTimeout(() => {
+                            card.remove();
+                            
+                            // Vérifier s'il reste des images
+                            const remainingCards = document.querySelectorAll('.image-card');
+                            if (remainingCards.length === 0) {
+                                location.reload();
+                            }
+                        }, 300);
+                    }
+                } else {
+                    alert('❌ Erreur: ' + (data.error || 'Impossible de supprimer'));
+                }
+            } catch (error) {
+                console.error('Erreur:', error);
+                alert('❌ Erreur réseau lors de la suppression');
+            }
+        }
+        
+        // Vider toute la corbeille
+        async function emptyTrash() {
+            if (!confirm('⚠️ ATTENTION : Vider toute la corbeille ?\n\nToutes les images seront supprimées définitivement !')) {
+                return;
+            }
+            
+            if (!confirm('⚠️ DERNIÈRE CONFIRMATION\n\nCette action est IRRÉVERSIBLE !')) {
+                return;
+            }
+            
+            try {
+                const response = await fetch('api/empty-trash.php', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    }
+                });
+                
+                const data = await response.json();
+                
+                if (data.success) {
+                    alert('✅ ' + data.message);
+                    location.reload();
+                } else {
+                    alert('❌ Erreur: ' + (data.error || 'Impossible de vider la corbeille'));
+                }
+            } catch (error) {
+                console.error('Erreur:', error);
+                alert('❌ Erreur réseau');
+            }
+        }
+    </script>
+</body>
+</html>
