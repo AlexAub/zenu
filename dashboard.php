@@ -296,13 +296,19 @@ $currentUser = $stmt->fetch();
         }
         
         .image-name {
-            font-weight: 600;
+			font-weight: 600;
             color: #333;
-            margin-bottom: 8px;
-            white-space: nowrap;
-            overflow: hidden;
-            text-overflow: ellipsis;
-        }
+			margin-bottom: 8px;
+			white-space: nowrap;
+			overflow: hidden;
+			text-overflow: ellipsis;
+			cursor: pointer;           /* NOUVEAU */
+			transition: color 0.3s;      /* NOUVEAU */
+		}
+
+		.image-name:hover {             /* NOUVEAU */
+		color: #667eea;
+		}
         
         .image-meta {
             display: flex;
@@ -580,6 +586,7 @@ $currentUser = $stmt->fetch();
                     <h1>🧘 Zenu Dashboard</h1>
                 </div>
                 <div class="nav">
+				    <a href="index.php">🏠 Accueil</a>
                     <a href="upload.php">📤 Upload</a>
                     <a href="convertisseur-prive.php">🔄 Convertisseur</a>
                     <a href="trash.php">🗑️ Corbeille</a>
@@ -666,20 +673,16 @@ $currentUser = $stmt->fetch();
 								onclick="viewImage(<?= $image['id'] ?>, '<?= htmlspecialchars($image['file_path'], ENT_QUOTES) ?>', '<?= htmlspecialchars($prettyUrl, ENT_QUOTES) ?>')">
                         </div>
                         <div class="image-info">
-                            <div class="image-name" title="<?= htmlspecialchars($cleanFilename) ?>">
-                                <?= htmlspecialchars($cleanFilename) ?>
-                            </div>
+                            <div class="image-name" 
+								title="Cliquer pour renommer : <?= htmlspecialchars($cleanFilename) ?>"
+								onclick="renameImage(<?= $image['id'] ?>, '<?= htmlspecialchars($cleanFilename, ENT_QUOTES) ?>')">
+								✏️ <?= htmlspecialchars($cleanFilename) ?>
+							</div>
                             <div class="image-meta">
                                 <span><?= $image['dimensions'] ?? ($image['width'] . 'x' . $image['height']) ?></span>
                                 <span><?= formatFileSize($image['file_size'] ?? 0) ?></span>
                             </div>
                             <div class="image-actions">
-                                <button class="icon-btn" onclick="viewImage(<?= $image['id'] ?>, '<?= htmlspecialchars($image['file_path'], ENT_QUOTES) ?>', '<?= htmlspecialchars($prettyUrl, ENT_QUOTES) ?>')" title="Voir en grand">
-									👁️
-								</button>
-                                <button class="icon-btn" onclick="renameImage(<?= $image['id'] ?>, '<?= htmlspecialchars($cleanFilename, ENT_QUOTES) ?>')" title="Renommer">
-                                    ✏️
-                                </button>
                                 <button class="icon-btn" onclick="copyDirectLink('<?= htmlspecialchars($prettyUrl, ENT_QUOTES) ?>')" title="Copier lien">
                                     🔗
                                 </button>
@@ -823,11 +826,6 @@ $currentUser = $stmt->fetch();
                 confirmRename();
             }
         });
-        
-        // Voir l'image
-        function viewImage(imageId) {
-            window.open('view.php?id=' + imageId, '_blank');
-        }
         
         // Télécharger l'image
         function downloadImage(imageId) {
