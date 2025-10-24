@@ -1,281 +1,236 @@
 <?php
-session_start();
 require_once 'config.php';
 
-// Vérifier si l'utilisateur est connecté
 if (!isset($_SESSION['user_id'])) {
     header('Location: login.php');
     exit;
 }
 
-// Récupérer l'utilisateur
-$stmt = $pdo->prepare("SELECT username FROM users WHERE id = ?");
-$stmt->execute([$_SESSION['user_id']]);
-$user = $stmt->fetch();
+$user_id = $_SESSION['user_id'];
+$pageTitle = "Convertisseur";
 
-if (!$user) {
-    session_destroy();
-    header('Location: login.php');
-    exit;
-}
+// Récupérer les quotas de l'utilisateur
+$stmt = $pdo->prepare("SELECT COUNT(*) as count, COALESCE(SUM(file_size), 0) as total_size FROM images WHERE user_id = ?");
+$stmt->execute([$user_id]);
+$quotas = $stmt->fetch();
+
+// Inclure le header
+require_once 'header.php';
 ?>
 <!DOCTYPE html>
-<html lang="fr">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Convertisseur Cloud - Zenu</title>
+    <title>Convertisseur Cloud - Qualité Améliorée</title>
     <style>
-        * {
-            margin: 0;
-            padding: 0;
-            box-sizing: border-box;
-        }
-        
         body {
-            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            font-family: 'Segoe UI', system-ui, sans-serif;
+            background: #f5f5f5;
             min-height: 100vh;
-            padding: 10px;
             margin: 0;
-            display: flex;
-            justify-content: center;
-            align-items: center;
         }
         
         .container {
+            max-width: 1400px;
+            margin: 20px auto;
             background: white;
             border-radius: 20px;
-            padding: 15px;
-            max-width: 1400px;
-            width: 100%;
-            margin: 0 auto;
-            box-shadow: 0 20px 60px rgba(0,0,0,0.3);
-        }
-        
-        .container.welcome-mode {
-            max-width: 550px;
-        }
-        
-        .header {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            margin-bottom: 15px;
-            padding-bottom: 15px;
-            border-bottom: 2px solid #f0f0f0;
-        }
-        
-        .header h1 {
-            color: #667eea;
-            font-size: 18px;
-        }
-        
-        .header a {
-            color: #667eea;
-            text-decoration: none;
-            font-size: 13px;
+            box-shadow: 0 20px 60px rgba(0,0,0,0.1);
+            overflow: hidden;
         }
         
         .main-content {
             display: grid;
-            grid-template-columns: 1fr 1.5fr;
-            gap: 15px;
-            align-items: start;
+            grid-template-columns: 1fr 1fr;
+            gap: 0;
+            min-height: 600px;
         }
         
-        .main-content.welcome-mode {
-            grid-template-columns: 1fr;
-            max-width: 500px;
-            margin: 0 auto;
-        }
-        
-        .left-panel, .right-panel {
-            min-width: 0;
+        .left-panel {
+            padding: 40px;
+            border-right: 1px solid #e0e0e0;
         }
         
         .right-panel {
-            position: sticky;
-            top: 20px;
-        }
-        
-        .right-panel.hidden {
-            display: none;
+            padding: 40px;
+            background: #f8f9fa;
+            display: flex;
+            align-items: center;
+            justify-content: center;
         }
         
         .upload-zone {
-            border: 2px dashed #667eea;
-            border-radius: 8px;
-            padding: 20px 15px;
+            border: 3px dashed #667eea;
+            border-radius: 16px;
+            padding: 60px 30px;
             text-align: center;
             cursor: pointer;
             transition: all 0.3s;
             background: #f8f9ff;
         }
         
-        .upload-zone.welcome-mode {
-            padding: 40px 25px;
-            border-width: 3px;
-        }
-        
-        .upload-zone.welcome-mode .upload-icon {
-            font-size: 48px;
-            margin-bottom: 15px;
-        }
-        
-        .upload-zone.welcome-mode h3 {
-            font-size: 18px;
-            margin-bottom: 8px;
-        }
-        
-        .upload-zone.welcome-mode p {
-            font-size: 14px;
-        }
-        
         .upload-zone:hover {
             border-color: #764ba2;
-            background: #f0f1ff;
-        }
-        
-        .upload-zone.dragover {
-            background: #e8e9ff;
-            border-color: #764ba2;
+            background: #f0f3ff;
         }
         
         .upload-icon {
-            font-size: 28px;
-            margin-bottom: 5px;
+            font-size: 64px;
+            margin-bottom: 20px;
         }
         
         .upload-zone h3 {
-            font-size: 15px;
-            margin-bottom: 3px;
+            font-size: 20px;
+            color: #333;
+            margin-bottom: 10px;
         }
         
         .upload-zone p {
-            font-size: 12px;
-            margin: 0;
+            color: #666;
+            font-size: 14px;
         }
         
-        input[type="file"] {
+        #fileInput {
             display: none;
         }
         
         .controls {
-            margin-top: 15px;
             display: none;
-        }
-        
-        .controls.active {
-            display: block;
+            margin-top: 30px;
         }
         
         .control-group {
-            margin-bottom: 12px;
+            background: #f8f9fa;
+            padding: 20px;
+            border-radius: 12px;
+            margin-bottom: 20px;
         }
         
-        label {
+        .control-group label {
             display: block;
-            margin-bottom: 4px;
-            color: #555;
-            font-weight: 600;
-            font-size: 13px;
+            color: #333;
+            font-weight: 500;
+            margin-bottom: 10px;
+            font-size: 14px;
         }
         
         input[type="range"] {
             width: 100%;
-            margin: 8px 0;
+            height: 8px;
+            border-radius: 4px;
+            background: #ddd;
+            outline: none;
+            -webkit-appearance: none;
+        }
+        
+        input[type="range"]::-webkit-slider-thumb {
+            -webkit-appearance: none;
+            appearance: none;
+            width: 20px;
+            height: 20px;
+            border-radius: 50%;
+            background: #667eea;
+            cursor: pointer;
+            box-shadow: 0 2px 8px rgba(102, 126, 234, 0.4);
+        }
+        
+        input[type="range"]::-moz-range-thumb {
+            width: 20px;
+            height: 20px;
+            border-radius: 50%;
+            background: #667eea;
+            cursor: pointer;
+            border: none;
         }
         
         .dimension-label {
-            display: inline-block;
-            min-width: 60px;
             color: #667eea;
-            font-weight: bold;
+            font-weight: 600;
         }
         
         button {
+            width: 100%;
+            padding: 16px;
             background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
             color: white;
             border: none;
-            padding: 10px 20px;
-            border-radius: 8px;
-            font-size: 14px;
+            border-radius: 12px;
+            font-size: 16px;
             font-weight: 600;
             cursor: pointer;
-            transition: transform 0.2s, box-shadow 0.2s;
-            width: 100%;
+            transition: all 0.3s;
             margin-top: 10px;
         }
         
-        button:hover:not(:disabled) {
+        button:hover {
             transform: translateY(-2px);
-            box-shadow: 0 10px 25px rgba(102, 126, 234, 0.4);
-        }
-        
-        button:active {
-            transform: translateY(0);
+            box-shadow: 0 8px 20px rgba(102, 126, 234, 0.4);
         }
         
         button:disabled {
-            opacity: 0.5;
+            opacity: 0.6;
             cursor: not-allowed;
+            transform: none;
+        }
+        
+        #currentFileName {
+            color: #333;
+            max-width: 250px;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+            display: inline-block;
+            vertical-align: middle;
         }
         
         .live-preview {
-            padding: 8px;
-            background: #f8f9ff;
-            border-radius: 8px;
-            text-align: center;
+            width: 100%;
+            max-width: 600px;
             display: none;
-            height: calc(100vh - 30px);
-            max-height: 800px;
-        }
-        
-        .live-preview.active {
-            display: flex;
-            flex-direction: column;
         }
         
         .live-preview-header {
-            font-size: 11px;
-            color: #888;
-            margin-bottom: 4px;
-            flex-shrink: 0;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 15px 20px;
+            border-radius: 12px 12px 0 0;
+            font-weight: 600;
+            font-size: 14px;
+            border-bottom: 2px solid #5568d3;
+            text-align: center;
         }
         
         .preview-container {
-            flex: 1;
+            background: 
+                linear-gradient(45deg, #f0f0f0 25%, transparent 25%),
+                linear-gradient(-45deg, #f0f0f0 25%, transparent 25%),
+                linear-gradient(45deg, transparent 75%, #f0f0f0 75%),
+                linear-gradient(-45deg, transparent 75%, #f0f0f0 75%);
+            background-size: 20px 20px;
+            background-position: 0 0, 0 10px, 10px -10px, -10px 0px;
+            background-color: white;
+            padding: 20px;
+            border-radius: 0 0 12px 12px;
+            min-height: 300px;
             display: flex;
             align-items: center;
             justify-content: center;
-            background: #fff;
-            border-radius: 6px;
-            padding: 8px;
-            overflow: hidden;
+            overflow: auto;
         }
         
-        .live-preview img {
-            max-width: 100%;
-            max-height: 100%;
-            border-radius: 4px;
-            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
-            border: 1px solid #667eea;
-            object-fit: contain;
-            cursor: pointer;
+        #livePreviewImg {
+            border-radius: 8px;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+            display: block;
+            /* L'image s'affichera à sa taille réelle */
         }
         
         .info {
-            margin-top: 8px;
-            padding: 10px;
+            margin-top: 20px;
+            padding: 20px;
             background: #e8f5e9;
-            border-radius: 6px;
-            color: #2e7d32;
-            font-size: 11px;
-            font-weight: 600;
-            flex-shrink: 0;
+            border-radius: 12px;
+            border-left: 4px solid #4caf50;
+            font-size: 14px;
+            line-height: 1.8;
             display: none;
-            text-align: left;
         }
         
         .info.active {
@@ -283,112 +238,93 @@ if (!$user) {
         }
         
         .url-container {
-            margin-top: 8px;
-            padding: 8px;
-            background: #fff3e0;
-            border-radius: 6px;
-            border: 1px solid #ff9800;
-        }
-        
-        .url-container strong {
-            color: #e65100;
-            display: block;
-            margin-bottom: 5px;
-            font-size: 11px;
+            margin-top: 15px;
+            padding-top: 15px;
+            border-top: 1px solid rgba(76, 175, 80, 0.3);
         }
         
         .url-input-group {
             display: flex;
-            gap: 5px;
+            gap: 10px;
+            margin-top: 10px;
         }
         
-        .url-container input {
+        .url-input-group input {
             flex: 1;
-            padding: 6px;
+            padding: 10px;
             border: 1px solid #ddd;
-            border-radius: 4px;
-            font-size: 11px;
-            min-width: 0;
+            border-radius: 8px;
+            font-family: monospace;
+            font-size: 13px;
         }
         
         .btn-copy-url {
-            background: #ff9800;
-            padding: 6px 12px;
-            font-size: 11px;
-            margin: 0;
             width: auto;
-            white-space: nowrap;
-        }
-        
-        .quota-info {
-            background: #e3f2fd;
-            padding: 10px;
-            border-radius: 6px;
-            font-size: 12px;
-            color: #1565c0;
-            margin-top: 10px;
-        }
-        
-        .error {
-            background: #ffebee;
-            color: #c62828;
-            padding: 10px;
-            border-radius: 6px;
-            font-size: 12px;
-            margin-top: 10px;
-            display: none;
+            padding: 10px 20px;
+            margin: 0;
+            background: #4caf50;
+            font-size: 14px;
         }
         
         .features {
-            background: linear-gradient(135deg, #f8f9ff 0%, #e8e9ff 100%);
+            margin-top: 40px;
+            padding: 25px;
+            background: linear-gradient(135deg, #f8f9ff 0%, #f0f3ff 100%);
             border-radius: 12px;
-            padding: 20px;
-            margin-top: 20px;
         }
         
         .features h4 {
             color: #667eea;
-            font-size: 16px;
             margin-bottom: 15px;
-            text-align: center;
+            font-size: 16px;
         }
         
         .features ul {
             list-style: none;
-            font-size: 14px;
-            color: #666;
             display: grid;
-            grid-template-columns: 1fr 1fr;
+            grid-template-columns: repeat(2, 1fr);
             gap: 12px;
         }
         
         .features li {
-            padding: 0;
-            position: relative;
             display: flex;
-            align-items: flex-start;
-            gap: 8px;
+            align-items: center;
+            gap: 10px;
+            font-size: 13px;
+            color: #555;
         }
         
         .features li span {
-            font-size: 18px;
-            flex-shrink: 0;
+            font-size: 20px;
+        }
+        
+        .quota-info {
+            margin-top: 20px;
+            padding: 15px;
+            background: #fff3cd;
+            border-radius: 8px;
+            font-size: 13px;
+            text-align: center;
+        }
+        
+        .error {
+            margin-top: 15px;
+            padding: 15px;
+            background: #ffebee;
+            color: #c62828;
+            border-radius: 8px;
+            font-size: 14px;
+            display: none;
         }
         
         @media (max-width: 1024px) {
-            .main-content,
-            .main-content.welcome-mode {
+            .main-content {
                 grid-template-columns: 1fr;
             }
             
-            .right-panel {
-                position: relative;
-                top: 0;
-            }
-            
-            .live-preview {
-                height: auto;
-                max-height: 500px;
+            .left-panel {
+                border-right: none;
+                border-bottom: 1px solid #e0e0e0;
             }
             
             .features ul {
@@ -396,11 +332,25 @@ if (!$user) {
             }
         }
         
-        @media (max-width: 600px) {
-            .header {
-                flex-direction: column;
-                align-items: flex-start;
-                gap: 10px;
+        @media (max-width: 768px) {
+            .container {
+                border-radius: 0;
+            }
+            
+            body {
+                padding: 0;
+            }
+            
+            .left-panel, .right-panel {
+                padding: 20px;
+            }
+            
+            .upload-zone {
+                padding: 40px 20px;
+            }
+            
+            .upload-icon {
+                font-size: 48px;
             }
             
             .header h1 {
@@ -415,11 +365,6 @@ if (!$user) {
 </head>
 <body>
     <div class="container" id="container">
-        <div class="header">
-            <h1>🔒 Convertisseur Cloud - Sauvegarde Cloud</h1>
-            <a href="dashboard.php">← Mes images</a>
-        </div>
-        
         <div class="main-content" id="mainContent">
             <div class="left-panel">
                 <div class="upload-zone" id="uploadZone">
@@ -434,7 +379,20 @@ if (!$user) {
                 <input type="file" id="fileInput" accept="image/*">
                 
                 <div class="controls" id="controls">
+                    <div style="background: #f8f9fa; padding: 15px; border-radius: 8px; margin-bottom: 20px; display: flex; justify-content: space-between; align-items: center;">
+                        <div style="font-size: 13px; color: #666;">
+                            📁 <strong id="currentFileName">Image chargée</strong>
+                        </div>
+                        <button id="changeImageBtn" style="width: auto; padding: 8px 16px; margin: 0; font-size: 13px; background: #6c757d;">
+                            🔄 Changer d'image
+                        </button>
+                    </div>
+                    
                     <div class="control-group">
+                        <div style="background: #e3f2fd; padding: 12px; border-radius: 8px; margin-bottom: 15px; font-size: 13px; color: #1976d2;">
+                            ℹ️ <strong>Réduction uniquement</strong> - L'image ne peut pas être agrandie au-delà de sa taille originale
+                        </div>
+                        
                         <label>📏 Largeur : <span class="dimension-label" id="widthValue">0</span> px</label>
                         <input type="range" id="widthSlider" min="10" max="4000" value="800">
                         
@@ -458,14 +416,14 @@ if (!$user) {
                 </div>
                 
                 <div class="features" id="featuresSection">
-                    <h4>Convertisseur d'Images Cloud</h4>
+                    <h4>✨ Convertisseur d'Images Cloud - Qualité Premium</h4>
                     <ul>
+                        <li><span>🎯</span><div>Algorithme de redimensionnement avancé</div></li>
+                        <li><span>✨</span><div>Netteté optimisée automatiquement</div></li>
+                        <li><span>📉</span><div>Réduction uniquement (pas d'agrandissement)</div></li>
                         <li><span>💾</span><div>Sauvegarde automatique sur le cloud</div></li>
                         <li><span>🔗</span><div>URL directe générée</div></li>
-                        <li><span>🌍</span><div>Accessible partout</div></li>
                         <li><span>📊</span><div>500 images · 500 MB max</div></li>
-                        <li><span>⚡</span><div>Aperçu temps réel</div></li>
-                        <li><span>🎯</span><div>Max 2 MB par image</div></li>
                     </ul>
                 </div>
             </div>
@@ -490,7 +448,7 @@ if (!$user) {
         let originalHeight = 0;
         let isUpdating = false;
         let originalFileSize = 0;
-        let originalFileName = 'image'; // Nom sans extension
+        let originalFileName = 'image';
         
         const uploadZone = document.getElementById('uploadZone');
         const fileInput = document.getElementById('fileInput');
@@ -509,27 +467,127 @@ if (!$user) {
         const info = document.getElementById('info');
         const quotaInfo = document.getElementById('quotaInfo');
         const errorMsg = document.getElementById('errorMsg');
-        const container = document.getElementById('container');
-        const mainContent = document.getElementById('mainContent');
-        const featuresSection = document.getElementById('featuresSection');
+        const changeImageBtn = document.getElementById('changeImageBtn');
+        const currentFileName = document.getElementById('currentFileName');
         
-        // Mode welcome par défaut
-        container.classList.add('welcome-mode');
-        mainContent.classList.add('welcome-mode');
-        uploadZone.classList.add('welcome-mode');
+        // Fonction de redimensionnement haute qualité avec algorithme en plusieurs étapes
+        function resizeImageHighQuality(sourceCanvas, targetWidth, targetHeight) {
+            const sourceWidth = sourceCanvas.width;
+            const sourceHeight = sourceCanvas.height;
+            
+            // Si l'image est agrandie, utiliser l'algorithme simple
+            if (targetWidth >= sourceWidth || targetHeight >= sourceHeight) {
+                const canvas = document.createElement('canvas');
+                canvas.width = targetWidth;
+                canvas.height = targetHeight;
+                const ctx = canvas.getContext('2d');
+                ctx.imageSmoothingEnabled = true;
+                ctx.imageSmoothingQuality = 'high';
+                ctx.drawImage(sourceCanvas, 0, 0, targetWidth, targetHeight);
+                return canvas;
+            }
+            
+            // Algorithme de redimensionnement progressif pour meilleure qualité
+            let currentCanvas = sourceCanvas;
+            let currentWidth = sourceWidth;
+            let currentHeight = sourceHeight;
+            
+            // Réduire par étapes de 50% maximum jusqu'à approcher la taille cible
+            while (currentWidth / 2 > targetWidth || currentHeight / 2 > targetHeight) {
+                const newWidth = Math.floor(currentWidth / 2);
+                const newHeight = Math.floor(currentHeight / 2);
+                
+                const tempCanvas = document.createElement('canvas');
+                tempCanvas.width = newWidth;
+                tempCanvas.height = newHeight;
+                const ctx = tempCanvas.getContext('2d');
+                ctx.imageSmoothingEnabled = true;
+                ctx.imageSmoothingQuality = 'high';
+                ctx.drawImage(currentCanvas, 0, 0, newWidth, newHeight);
+                
+                currentCanvas = tempCanvas;
+                currentWidth = newWidth;
+                currentHeight = newHeight;
+            }
+            
+            // Dernière étape : redimensionner à la taille exacte
+            const finalCanvas = document.createElement('canvas');
+            finalCanvas.width = targetWidth;
+            finalCanvas.height = targetHeight;
+            const ctx = finalCanvas.getContext('2d');
+            ctx.imageSmoothingEnabled = true;
+            ctx.imageSmoothingQuality = 'high';
+            ctx.drawImage(currentCanvas, 0, 0, targetWidth, targetHeight);
+            
+            return finalCanvas;
+        }
+        
+        // Fonction pour augmenter la netteté (unsharp mask simplifié)
+        function sharpenCanvas(canvas, amount = 0.5) {
+            const ctx = canvas.getContext('2d');
+            const width = canvas.width;
+            const height = canvas.height;
+            const imageData = ctx.getImageData(0, 0, width, height);
+            const data = imageData.data;
+            
+            // Créer une copie pour le calcul
+            const tempCanvas = document.createElement('canvas');
+            tempCanvas.width = width;
+            tempCanvas.height = height;
+            const tempCtx = tempCanvas.getContext('2d');
+            tempCtx.drawImage(canvas, 0, 0);
+            const originalData = tempCtx.getImageData(0, 0, width, height).data;
+            
+            // Appliquer un filtre de netteté simple
+            for (let i = 0; i < data.length; i += 4) {
+                for (let j = 0; j < 3; j++) {
+                    const original = originalData[i + j];
+                    const current = data[i + j];
+                    data[i + j] = Math.min(255, Math.max(0, 
+                        current + (current - original) * amount
+                    ));
+                }
+            }
+            
+            ctx.putImageData(imageData, 0, 0);
+            return canvas;
+        }
         
         loadQuotas();
+        
+        // Bouton pour changer d'image
+        changeImageBtn.addEventListener('click', () => {
+            // Réinitialiser l'interface
+            originalImage = null;
+            originalWidth = 0;
+            originalHeight = 0;
+            originalFileSize = 0;
+            originalFileName = 'image';
+            
+            // Réafficher la zone d'upload
+            uploadZone.style.display = 'block';
+            controls.style.display = 'none';
+            livePreview.style.display = 'none';
+            
+            // Réinitialiser le input file
+            fileInput.value = '';
+            
+            // Cacher les messages
+            hideError();
+            info.classList.remove('active');
+        });
         
         async function loadQuotas() {
             try {
                 const response = await fetch('get-quotas.php');
                 const data = await response.json();
-                quotaInfo.innerHTML = `
-                    📊 <strong>${data.used_space}</strong> / 500 MB · 
-                    📁 <strong>${data.image_count}</strong> / 500 images
-                `;
+                if (data.success) {
+                    quotaInfo.innerHTML = `📊 Quota : ${data.count}/500 images · ${data.used_space}/500 MB utilisés`;
+                } else {
+                    quotaInfo.innerHTML = '⚠️ Impossible de charger les quotas';
+                }
             } catch(e) {
-                console.error('Erreur chargement quotas:', e);
+                quotaInfo.innerHTML = '⚠️ Impossible de charger les quotas';
             }
         }
         
@@ -537,39 +595,45 @@ if (!$user) {
         
         uploadZone.addEventListener('dragover', (e) => {
             e.preventDefault();
-            uploadZone.classList.add('dragover');
+            uploadZone.style.borderColor = '#764ba2';
+            uploadZone.style.background = '#f0f3ff';
         });
         
         uploadZone.addEventListener('dragleave', () => {
-            uploadZone.classList.remove('dragover');
+            uploadZone.style.borderColor = '#667eea';
+            uploadZone.style.background = '#f8f9ff';
         });
         
         uploadZone.addEventListener('drop', (e) => {
             e.preventDefault();
-            uploadZone.classList.remove('dragover');
-            const file = e.dataTransfer.files[0];
-            if (file && file.type.startsWith('image/')) {
-                handleFile(file);
+            uploadZone.style.borderColor = '#667eea';
+            uploadZone.style.background = '#f8f9ff';
+            
+            if (e.dataTransfer.files.length > 0) {
+                fileInput.files = e.dataTransfer.files;
+                handleFile(e.dataTransfer.files[0]);
             }
         });
         
         fileInput.addEventListener('change', (e) => {
-            const file = e.target.files[0];
-            if (file) {
-                handleFile(file);
+            if (e.target.files.length > 0) {
+                handleFile(e.target.files[0]);
             }
         });
         
         function handleFile(file) {
-            // On accepte toutes les tailles au chargement
-            // La vérification se fera à la sauvegarde
-            originalFileSize = file.size;
-            originalFileName = file.name.replace(/\.[^/.]+$/, ""); // Garder le nom sans extension
+            if (!file.type.startsWith('image/')) {
+                showError('Veuillez sélectionner une image valide');
+                return;
+            }
+            
             hideError();
-            loadImage(file);
-        }
-        
-        function loadImage(file) {
+            originalFileSize = file.size;
+            originalFileName = file.name.replace(/\.[^/.]+$/, "");
+            
+            // Afficher le nom du fichier
+            currentFileName.textContent = file.name;
+            
             const reader = new FileReader();
             reader.onload = (e) => {
                 const img = new Image();
@@ -578,19 +642,15 @@ if (!$user) {
                     originalWidth = img.width;
                     originalHeight = img.height;
                     
+                    // Limiter les sliders à la taille originale maximum (pas d'agrandissement)
                     widthSlider.max = originalWidth;
                     heightSlider.max = originalHeight;
                     widthSlider.value = originalWidth;
                     heightSlider.value = originalHeight;
                     
-                    // Passer en mode application
-                    container.classList.remove('welcome-mode');
-                    mainContent.classList.remove('welcome-mode');
-                    uploadZone.classList.remove('welcome-mode');
-                    featuresSection.style.display = 'none';
-                    
-                    controls.classList.add('active');
-                    livePreview.classList.add('active');
+                    uploadZone.style.display = 'none';
+                    controls.style.display = 'block';
+                    livePreview.style.display = 'block';
                     
                     updatePreview();
                 };
@@ -604,21 +664,45 @@ if (!$user) {
             
             const width = parseInt(widthSlider.value);
             const height = parseInt(heightSlider.value);
+            const quality = qualitySlider.value / 100;
             
             widthValue.textContent = width;
             heightValue.textContent = height;
-            liveSize.textContent = `${width} × ${height} px`;
             
-            const canvas = document.createElement('canvas');
-            canvas.width = width;
-            canvas.height = height;
+            // Créer un canvas avec l'image originale
+            const sourceCanvas = document.createElement('canvas');
+            sourceCanvas.width = originalWidth;
+            sourceCanvas.height = originalHeight;
+            const sourceCtx = sourceCanvas.getContext('2d');
+            sourceCtx.drawImage(originalImage, 0, 0);
             
-            const ctx = canvas.getContext('2d');
-            ctx.imageSmoothingEnabled = true;
-            ctx.imageSmoothingQuality = 'high';
-            ctx.drawImage(originalImage, 0, 0, width, height);
+            // Redimensionner avec l'algorithme haute qualité
+            let resizedCanvas = resizeImageHighQuality(sourceCanvas, width, height);
             
-            livePreviewImg.src = canvas.toDataURL('image/jpeg', qualitySlider.value / 100);
+            // Appliquer la netteté si l'image est réduite
+            if (width < originalWidth || height < originalHeight) {
+                resizedCanvas = sharpenCanvas(resizedCanvas, 0.3);
+            }
+            
+            // Convertir en data URL et calculer la taille estimée
+            const dataUrl = resizedCanvas.toDataURL('image/jpeg', quality);
+            livePreviewImg.src = dataUrl;
+            
+            // Calculer la taille estimée du fichier
+            const base64Length = dataUrl.length - 'data:image/jpeg;base64,'.length;
+            const estimatedSize = (base64Length * 3) / 4; // Taille en octets
+            const sizeKB = (estimatedSize / 1024).toFixed(2);
+            const sizeMB = (estimatedSize / (1024 * 1024)).toFixed(2);
+            
+            let sizeText = sizeKB < 1024 ? `${sizeKB} KB` : `${sizeMB} MB`;
+            
+            // Ajouter un avertissement si > 2MB
+            let warningText = '';
+            if (estimatedSize > 2 * 1024 * 1024) {
+                warningText = ' <span style="color: #f44336;">⚠️ > 2 MB</span>';
+            }
+            
+            liveSize.innerHTML = `${width} × ${height} · ${sizeText}${warningText}`;
         }
         
         widthSlider.addEventListener('input', () => {
@@ -646,33 +730,11 @@ if (!$user) {
             updatePreview();
         });
         
-        livePreviewImg.addEventListener('click', () => {
-            if (!originalImage) return;
-            
-            const width = parseInt(widthSlider.value);
-            const height = parseInt(heightSlider.value);
-            const quality = qualitySlider.value / 100;
-            
-            const canvas = document.createElement('canvas');
-            canvas.width = width;
-            canvas.height = height;
-            
-            const ctx = canvas.getContext('2d');
-            ctx.imageSmoothingEnabled = true;
-            ctx.imageSmoothingQuality = 'high';
-            ctx.drawImage(originalImage, 0, 0, width, height);
-            
-            canvas.toBlob((blob) => {
-                const url = URL.createObjectURL(blob);
-                window.open(url, '_blank');
-            }, 'image/jpeg', quality);
-        });
-        
         saveBtn.addEventListener('click', async () => {
             if (!originalImage) return;
             
             saveBtn.disabled = true;
-            saveBtn.textContent = '⏳ Sauvegarde...';
+            saveBtn.textContent = '⏳ Traitement haute qualité...';
             hideError();
             info.classList.remove('active');
             
@@ -680,16 +742,22 @@ if (!$user) {
             const height = parseInt(heightSlider.value);
             const quality = qualitySlider.value / 100;
             
-            const canvas = document.createElement('canvas');
-            canvas.width = width;
-            canvas.height = height;
+            // Créer un canvas avec l'image originale
+            const sourceCanvas = document.createElement('canvas');
+            sourceCanvas.width = originalWidth;
+            sourceCanvas.height = originalHeight;
+            const sourceCtx = sourceCanvas.getContext('2d');
+            sourceCtx.drawImage(originalImage, 0, 0);
             
-            const ctx = canvas.getContext('2d');
-            ctx.imageSmoothingEnabled = true;
-            ctx.imageSmoothingQuality = 'high';
-            ctx.drawImage(originalImage, 0, 0, width, height);
+            // Redimensionner avec l'algorithme haute qualité
+            let finalCanvas = resizeImageHighQuality(sourceCanvas, width, height);
             
-            canvas.toBlob(async (blob) => {
+            // Appliquer la netteté si l'image est réduite
+            if (width < originalWidth || height < originalHeight) {
+                finalCanvas = sharpenCanvas(finalCanvas, 0.3);
+            }
+            
+            finalCanvas.toBlob(async (blob) => {
                 // Vérifier la taille du blob final (2MB max pour sauvegarde)
                 if (blob.size > 2 * 1024 * 1024) {
                     const sizeMB = (blob.size / (1024 * 1024)).toFixed(2);
@@ -716,7 +784,7 @@ if (!$user) {
                     if (result.success) {
                         const size = (blob.size / 1024).toFixed(2);
                         info.innerHTML = `
-                            ✅ <strong>Image sauvegardée !</strong><br>
+                            ✅ <strong>Image sauvegardée en haute qualité !</strong><br>
                             ${width} × ${height} px · ${size} KB
                             <div class="url-container">
                                 <strong>🔗 URL de votre image :</strong>

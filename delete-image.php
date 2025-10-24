@@ -1,6 +1,8 @@
 <?php
 session_start();
-require_once 'config.php';
+
+require_once '../config.php';
+require_once '../image-functions.php';
 
 header('Content-Type: application/json');
 
@@ -9,32 +11,29 @@ if (!isset($_SESSION['user_id'])) {
     exit;
 }
 
-$user_id = $_SESSION['user_id'];
-$image_id = intval($_POST['image_id'] ?? 0);
-
-if ($image_id <= 0) {
-    echo json_encode(['success' => false, 'error' => 'ID invalide']);
+if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
+    echo json_encode(['success' => false, 'error' => 'Méthode non autorisée']);
     exit;
 }
 
-// Récupérer l'image
-$stmt = $pdo->prepare("SELECT * FROM images WHERE id = ? AND user_id = ?");
-$stmt->execute([$image_id, $user_id]);
-$image = $stmt->fetch();
+$input = json_decode(file_get_contents('php://input'), true);
+$imageId = intval($input['image_id'] ?? 0);
+$userId = $_SESSION['user_id'];
 
-if (!$image) {
-    echo json_encode(['success' => false, 'error' => 'Image non trouvée']);
+if ($imageId <= 0) {
+    echo json_encode(['success' => false, 'error' => 'ID image invalide']);
     exit;
 }
 
-// Supprimer le fichier physique
-if (file_exists($image['file_path'])) {
-    unlink($image['file_path']);
+// Hard delete (suppression définitive)
+$success = hardDeleteImage($pdo, $imageId, $userId);
+
+if ($success) {
+    if (function_exists('logSecurityAction')) {
+        logSecurityAction($userId, 'image_permanently_deleted', "Image $imageId permanently deleted");
+    }
+    echo json_encode(['success' => true, 'message' => 'Image supprimée définitivement']);
+} else {
+    echo json_encode(['success' => false, 'error' => 'Impossible de supprimer définitivement l\'image']);
 }
-
-// Supprimer de la BDD
-$stmt = $pdo->prepare("DELETE FROM images WHERE id = ? AND user_id = ?");
-$stmt->execute([$image_id, $user_id]);
-
-echo json_encode(['success' => true]);
 ?>

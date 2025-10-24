@@ -1,15 +1,11 @@
 <?php
-// Ne pas appeler session_start() ici car config.php le fait déjà
-
 require_once 'config.php';
 require_once 'image-functions.php';
 
-// Vérifier si security.php existe
 if (file_exists('security.php')) {
     require_once 'security.php';
 }
 
-// Fonction checkAuth si elle n'existe pas
 if (!function_exists('checkAuth')) {
     function checkAuth() {
         if (!isset($_SESSION['user_id'])) {
@@ -19,17 +15,10 @@ if (!function_exists('checkAuth')) {
     }
 }
 
-// Prévention CSRF basique si la fonction n'existe pas
-if (!function_exists('preventCSRF')) {
-    function preventCSRF() {
-        return true;
-    }
-}
-
 checkAuth();
-preventCSRF();
 
 $userId = $_SESSION['user_id'];
+$pageTitle = "Corbeille";
 
 // Statistiques de la corbeille
 $stmt = $pdo->prepare("
@@ -62,7 +51,6 @@ $stmt = $pdo->prepare("
 $stmt->execute([$userId]);
 $deletedImages = $stmt->fetchAll();
 
-// Fonction formatFileSize si elle n'existe pas
 if (!function_exists('formatFileSize')) {
     function formatFileSize($bytes) {
         if ($bytes >= 1073741824) {
@@ -76,66 +64,23 @@ if (!function_exists('formatFileSize')) {
         }
     }
 }
+
+// Inclure le header
+require_once 'header.php';
 ?>
-<!DOCTYPE html>
-<html lang="fr">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Corbeille - Zenu</title>
     <style>
-        * {
-            margin: 0;
-            padding: 0;
-            box-sizing: border-box;
-        }
-        
         body {
             font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            background: #f5f5f5;
+            margin: 0;
             min-height: 100vh;
-        }
-        
-        .header {
-            background: white;
-            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
-            padding: 20px 0;
-            margin-bottom: 30px;
         }
         
         .container {
             max-width: 1400px;
             margin: 0 auto;
-            padding: 0 20px;
-        }
-        
-        .header-content {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-        }
-        
-        .logo h1 {
-            color: #667eea;
-            font-size: 28px;
-        }
-        
-        .nav {
-            display: flex;
-            gap: 15px;
-        }
-        
-        .nav a {
-            text-decoration: none;
-            color: #666;
-            padding: 10px 20px;
-            border-radius: 8px;
-            transition: all 0.3s;
-        }
-        
-        .nav a:hover {
-            background: #667eea;
-            color: white;
+            padding: 30px 20px;
         }
         
         .info-banner {
@@ -193,6 +138,7 @@ if (!function_exists('formatFileSize')) {
             transition: all 0.3s;
             text-decoration: none;
             display: inline-block;
+            font-weight: 600;
         }
         
         .btn-danger {
@@ -218,38 +164,19 @@ if (!function_exists('formatFileSize')) {
             border-radius: 12px;
             overflow: hidden;
             box-shadow: 0 2px 8px rgba(0,0,0,0.1);
-            transition: transform 0.3s, box-shadow 0.3s;
+            transition: all 0.3s;
         }
         
         .image-card:hover {
-            transform: translateY(-5px);
-            box-shadow: 0 4px 20px rgba(0,0,0,0.15);
+            transform: translateY(-4px);
+            box-shadow: 0 8px 20px rgba(0,0,0,0.15);
         }
         
         .image-preview {
-            position: relative;
             width: 100%;
             height: 200px;
-            overflow: hidden;
-            background: #f5f5f5;
-        }
-        
-        .image-preview img {
-            width: 100%;
-            height: 100%;
             object-fit: cover;
-        }
-        
-        .days-badge {
-            position: absolute;
-            top: 10px;
-            right: 10px;
-            background: rgba(255, 0, 0, 0.9);
-            color: white;
-            padding: 5px 12px;
-            border-radius: 20px;
-            font-size: 12px;
-            font-weight: bold;
+            background: #f5f5f5;
         }
         
         .image-info {
@@ -258,48 +185,80 @@ if (!function_exists('formatFileSize')) {
         
         .image-name {
             font-weight: 600;
-            margin-bottom: 5px;
+            margin-bottom: 8px;
             color: #333;
-            white-space: nowrap;
             overflow: hidden;
             text-overflow: ellipsis;
+            white-space: nowrap;
         }
         
         .image-meta {
-            color: #999;
             font-size: 13px;
-            margin-bottom: 15px;
+            color: #999;
+            margin-bottom: 12px;
         }
         
-        .image-actions {
-            display: flex;
-            gap: 10px;
-        }
-        
-        .icon-btn {
-            flex: 1;
-            padding: 8px 12px;
-            border: 1px solid #ddd;
-            background: white;
+        .days-remaining {
+            display: inline-block;
+            padding: 4px 10px;
             border-radius: 6px;
-            cursor: pointer;
-            transition: all 0.2s;
-            font-size: 14px;
+            font-size: 12px;
+            font-weight: 600;
+            margin-top: 8px;
         }
         
-        .icon-btn:hover {
-            background: #e0e0e0;
-            transform: translateY(-1px);
+        .days-remaining.critical {
+            background: #ffebee;
+            color: #c62828;
         }
         
-        .icon-btn.restore:hover {
+        .days-remaining.warning {
+            background: #fff3cd;
+            color: #856404;
+        }
+        
+        .days-remaining.safe {
             background: #e8f5e9;
             color: #2e7d32;
         }
         
-        .icon-btn.delete-permanent:hover {
+        .image-actions {
+            display: flex;
+            gap: 8px;
+        }
+        
+        .icon-btn {
+            flex: 1;
+            padding: 10px;
+            border: none;
+            background: #f5f5f5;
+            border-radius: 6px;
+            cursor: pointer;
+            transition: all 0.2s;
+            font-size: 14px;
+            font-weight: 600;
+        }
+        
+        .icon-btn:hover {
+            transform: translateY(-1px);
+        }
+        
+        .icon-btn.restore {
+            background: #e8f5e9;
+            color: #2e7d32;
+        }
+        
+        .icon-btn.restore:hover {
+            background: #c8e6c9;
+        }
+        
+        .icon-btn.delete-permanent {
             background: #ffebee;
             color: #c62828;
+        }
+        
+        .icon-btn.delete-permanent:hover {
+            background: #ffcdd2;
         }
         
         .empty-state {
@@ -339,20 +298,6 @@ if (!function_exists('formatFileSize')) {
     </style>
 </head>
 <body>
-    <div class="header">
-        <div class="container">
-            <div class="header-content">
-                <div class="logo">
-                    <h1>🗑️ Corbeille</h1>
-                </div>
-                <div class="nav">
-                    <a href="dashboard.php">← Dashboard</a>
-                    <a href="upload.php">📤 Upload</a>
-                    <a href="logout.php">🚪 Déconnexion</a>
-                </div>
-            </div>
-        </div>
-    </div>
     
     <div class="container">
         <div class="info-banner">
@@ -367,7 +312,7 @@ if (!function_exists('formatFileSize')) {
             </div>
             <div class="stat-card">
                 <div class="stat-value"><?= formatFileSize($stats['total_size'] ?? 0) ?></div>
-                <div class="stat-label">Espace libérable</div>
+                <div class="stat-label">Espace occupé</div>
             </div>
         </div>
         
@@ -377,41 +322,35 @@ if (!function_exists('formatFileSize')) {
                     🗑️ Vider la corbeille
                 </button>
             </div>
-        <?php endif; ?>
-        
-        <?php if (empty($deletedImages)): ?>
-            <div class="empty-state">
-                <div class="empty-state-icon">✨</div>
-                <h3>Corbeille vide</h3>
-                <p>Aucune image supprimée</p>
-                <a href="dashboard.php" class="btn" style="background: #667eea; color: white;">
-                    ← Retour au dashboard
-                </a>
-            </div>
-        <?php else: ?>
+            
             <div class="images-grid">
                 <?php foreach ($deletedImages as $image): ?>
-                    <div class="image-card" data-image-id="<?= $image['id'] ?>">
-                        <div class="image-preview">
-                            <div class="days-badge">
-                                <?= max(0, $image['days_remaining']) ?> jours restants
-                            </div>
-                            <img src="<?= htmlspecialchars($image['thumbnail_path'] ?? $image['file_path']) ?>" 
-                                 alt="<?= htmlspecialchars($image['original_filename'] ?? $image['filename']) ?>"
-                                 loading="lazy">
-                        </div>
+                    <div class="image-card" id="image-<?= $image['id'] ?>">
+                        <img src="<?= htmlspecialchars($image['thumbnail_path'] ?? $image['file_path']) ?>" 
+                             alt="<?= htmlspecialchars($image['original_filename'] ?? $image['filename']) ?>"
+                             class="image-preview">
                         <div class="image-info">
-                            <div class="image-name" title="<?= htmlspecialchars($image['original_filename'] ?? $image['filename']) ?>">
+                            <div class="image-name">
                                 <?= htmlspecialchars($image['original_filename'] ?? $image['filename']) ?>
                             </div>
                             <div class="image-meta">
-                                Supprimé le <?= date('d/m/Y', strtotime($image['deleted_at'])) ?>
+                                <?= $image['width'] ?>×<?= $image['height'] ?> · 
+                                <?= formatFileSize($image['file_size']) ?>
+                                <br>
+                                Supprimé: <?= date('d/m/Y', strtotime($image['deleted_at'])) ?>
+                                <?php
+                                $daysRemaining = $image['days_remaining'];
+                                $class = $daysRemaining <= 7 ? 'critical' : ($daysRemaining <= 14 ? 'warning' : 'safe');
+                                ?>
+                                <span class="days-remaining <?= $class ?>">
+                                    <?= $daysRemaining ?> jour<?= $daysRemaining > 1 ? 's' : '' ?> restant<?= $daysRemaining > 1 ? 's' : '' ?>
+                                </span>
                             </div>
                             <div class="image-actions">
-                                <button class="icon-btn restore" onclick="restoreImage(<?= $image['id'] ?>)" title="Restaurer">
+                                <button class="icon-btn restore" onclick="restoreImage(<?= $image['id'] ?>)">
                                     ♻️ Restaurer
                                 </button>
-                                <button class="icon-btn delete-permanent" onclick="deleteImagePermanently(<?= $image['id'] ?>)" title="Supprimer définitivement">
+                                <button class="icon-btn delete-permanent" onclick="deleteImagePermanently(<?= $image['id'] ?>)">
                                     ❌ Supprimer
                                 </button>
                             </div>
@@ -419,15 +358,21 @@ if (!function_exists('formatFileSize')) {
                     </div>
                 <?php endforeach; ?>
             </div>
+        <?php else: ?>
+            <div class="empty-state">
+                <div class="empty-state-icon">🗑️</div>
+                <h3>La corbeille est vide</h3>
+                <p>Aucune image supprimée</p>
+                <a href="dashboard.php" class="btn" style="background: #667eea; color: white;">
+                    Retour au dashboard
+                </a>
+            </div>
         <?php endif; ?>
     </div>
-    
+
     <script>
-        // Restaurer une image
         async function restoreImage(imageId) {
-            if (!confirm('Restaurer cette image ?')) {
-                return;
-            }
+            if (!confirm('Voulez-vous restaurer cette image ?')) return;
             
             try {
                 const response = await fetch('api/restore-image.php', {
@@ -441,22 +386,22 @@ if (!function_exists('formatFileSize')) {
                 const data = await response.json();
                 
                 if (data.success) {
-                    alert('✅ Image restaurée !');
-                    location.reload();
+                    const card = document.getElementById(`image-${imageId}`);
+                    card.style.animation = 'fadeOut 0.3s ease-out';
+                    setTimeout(() => {
+                        card.remove();
+                        location.reload();
+                    }, 300);
                 } else {
-                    alert('Erreur: ' + (data.error || 'Impossible de restaurer'));
+                    alert('Erreur: ' + (data.error || 'Impossible de restaurer l\'image'));
                 }
             } catch (error) {
-                console.error('Erreur:', error);
-                alert('Erreur réseau lors de la restauration');
+                alert('Erreur réseau');
             }
         }
         
-        // Supprimer définitivement une image
         async function deleteImagePermanently(imageId) {
-            if (!confirm('⚠️ ATTENTION : Cette action est IRRÉVERSIBLE !\n\nÊtes-vous sûr de vouloir supprimer définitivement cette image ?')) {
-                return;
-            }
+            if (!confirm('⚠️ ATTENTION: Cette action est IRRÉVERSIBLE!\n\nVoulez-vous vraiment supprimer définitivement cette image ?')) return;
             
             try {
                 const response = await fetch('api/delete-permanent.php', {
@@ -470,60 +415,38 @@ if (!function_exists('formatFileSize')) {
                 const data = await response.json();
                 
                 if (data.success) {
-                    alert('✅ Image supprimée définitivement !');
-                    
-                    // Retirer visuellement la carte avec animation
-                    const card = document.querySelector(`[data-image-id="${imageId}"]`);
-                    if (card) {
-                        card.style.animation = 'fadeOut 0.3s';
-                        setTimeout(() => {
-                            card.remove();
-                            
-                            // Vérifier s'il reste des images
-                            const remainingCards = document.querySelectorAll('.image-card');
-                            if (remainingCards.length === 0) {
-                                location.reload();
-                            }
-                        }, 300);
-                    }
+                    const card = document.getElementById(`image-${imageId}`);
+                    card.style.animation = 'fadeOut 0.3s ease-out';
+                    setTimeout(() => {
+                        card.remove();
+                        location.reload();
+                    }, 300);
                 } else {
-                    alert('❌ Erreur: ' + (data.error || 'Impossible de supprimer'));
+                    alert('Erreur: ' + (data.error || 'Impossible de supprimer l\'image'));
                 }
             } catch (error) {
-                console.error('Erreur:', error);
-                alert('❌ Erreur réseau lors de la suppression');
+                alert('Erreur réseau');
             }
         }
         
-        // Vider toute la corbeille
         async function emptyTrash() {
-            if (!confirm('⚠️ ATTENTION : Vider toute la corbeille ?\n\nToutes les images seront supprimées définitivement !')) {
-                return;
-            }
-            
-            if (!confirm('⚠️ DERNIÈRE CONFIRMATION\n\nCette action est IRRÉVERSIBLE !')) {
-                return;
-            }
+            if (!confirm('⚠️ ATTENTION: Cette action est IRRÉVERSIBLE!\n\nVoulez-vous vraiment VIDER LA CORBEILLE et supprimer définitivement toutes les images ?')) return;
             
             try {
                 const response = await fetch('api/empty-trash.php', {
-                    method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json',
-                    }
+                    method: 'POST'
                 });
                 
                 const data = await response.json();
                 
                 if (data.success) {
-                    alert('✅ ' + data.message);
+                    alert(data.message);
                     location.reload();
                 } else {
-                    alert('❌ Erreur: ' + (data.error || 'Impossible de vider la corbeille'));
+                    alert('Erreur: ' + (data.error || 'Impossible de vider la corbeille'));
                 }
             } catch (error) {
-                console.error('Erreur:', error);
-                alert('❌ Erreur réseau');
+                alert('Erreur réseau');
             }
         }
     </script>

@@ -27,11 +27,26 @@ if (!$image || !file_exists($image['file_path'])) {
     die('Image introuvable');
 }
 
-// Forcer le téléchargement
-$filename = $image['original_filename'] ?? $image['filename'];
+// Construire le nom de fichier avec extension
+$original_name = $image['original_filename'] ?? pathinfo($image['filename'], PATHINFO_FILENAME);
+
+// Récupérer l'extension du fichier réel
+$extension = pathinfo($image['file_path'], PATHINFO_EXTENSION);
+
+// Si original_filename n'a pas d'extension, l'ajouter
+if (pathinfo($original_name, PATHINFO_EXTENSION) === '') {
+    $download_filename = $original_name . '.' . $extension;
+} else {
+    $download_filename = $original_name;
+}
+
+// Forcer le téléchargement avec le bon nom
 header('Content-Type: application/octet-stream');
-header('Content-Disposition: attachment; filename="' . $filename . '"');
+header('Content-Disposition: attachment; filename="' . $download_filename . '"');
 header('Content-Length: ' . filesize($image['file_path']));
+header('Cache-Control: must-revalidate');
+header('Pragma: public');
+
 readfile($image['file_path']);
 exit;
 ?>

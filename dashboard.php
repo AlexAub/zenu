@@ -10,6 +10,7 @@ if (!isLoggedIn()) {
 }
 
 $userId = $_SESSION['user_id'];
+$pageTitle = "Mes images";
 
 // Récupérer les paramètres de recherche/filtre
 $search = $_GET['search'] ?? '';
@@ -69,6 +70,7 @@ $stats = $stmt->fetch();
 $stmt = $pdo->prepare("SELECT username FROM users WHERE id = ?");
 $stmt->execute([$userId]);
 $currentUser = $stmt->fetch();
+require_once 'header.php'
 ?>
 <!DOCTYPE html>
 <html lang="fr">
@@ -84,45 +86,16 @@ $currentUser = $stmt->fetch();
         }
         
         body {
-            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-            background: #f5f5f5;
-            min-height: 100vh;
-        }
-        
-        .header {
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-            color: white;
-            padding: 20px 0;
-            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
-        }
+			font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+			background: #f5f5f5;
+			min-height: 100vh;
+			margin: 0;
+        }        
         
         .container {
             max-width: 1400px;
             margin: 0 auto;
             padding: 0 20px;
-        }
-        
-        .header-content {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-        }
-        
-        .logo h1 {
-            font-size: 24px;
-        }
-        
-        .nav a {
-            color: white;
-            text-decoration: none;
-            margin-left: 20px;
-            padding: 8px 16px;
-            border-radius: 6px;
-            transition: background 0.3s;
-        }
-        
-        .nav a:hover {
-            background: rgba(255,255,255,0.2);
         }
         
         .stats {
@@ -579,22 +552,6 @@ $currentUser = $stmt->fetch();
     </style>
 </head>
 <body>
-    <div class="header">
-        <div class="container">
-            <div class="header-content">
-                <div class="logo">
-                    <h1>🧘 Zenu Dashboard</h1>
-                </div>
-                <div class="nav">
-				    <a href="index.php">🏠 Accueil</a>
-                    <a href="upload.php">📤 Upload</a>
-                    <a href="convertisseur-prive.php">🔄 Convertisseur</a>
-                    <a href="trash.php">🗑️ Corbeille</a>
-                    <a href="logout.php">🚪 Déconnexion</a>
-                </div>
-            </div>
-        </div>
-    </div>
     
     <div class="container">
         <!-- Statistiques -->
