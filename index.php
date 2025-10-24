@@ -1,5 +1,6 @@
 <?php
 require_once 'config.php';
+
 $user = getCurrentUser();
 ?>
 <!DOCTYPE html>
@@ -7,7 +8,7 @@ $user = getCurrentUser();
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Zenu - Outils simples et zen</title>
+    <title>Zenu - Des outils simples et zen</title>
     <style>
         * {
             margin: 0;
@@ -16,166 +17,215 @@ $user = getCurrentUser();
         }
         
         body {
-            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            font-family: 'Segoe UI', system-ui, sans-serif;
             background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
             min-height: 100vh;
-            color: #333;
-            display: flex;
-            flex-direction: column;
         }
         
-        /* Navigation */
-        nav {
-            background: rgba(255, 255, 255, 0.98);
-            padding: 15px 30px;
-            box-shadow: 0 1px 3px rgba(0,0,0,0.05);
-            backdrop-filter: blur(10px);
+        .site-header {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+        
+        .header-container {
+            max-width: 1400px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+        
+        .header-content {
             display: flex;
             justify-content: space-between;
             align-items: center;
+            flex-wrap: wrap;
+            gap: 20px;
         }
         
-        .logo {
+        .header-left {
+            display: flex;
+            align-items: center;
+            gap: 20px;
+        }
+        
+        .site-logo {
             font-size: 24px;
             font-weight: 700;
-            color: #667eea;
+            color: white;
             text-decoration: none;
-        }
-        
-        .nav-links {
             display: flex;
-            gap: 20px;
             align-items: center;
+            gap: 8px;
         }
         
-        .nav-links a {
-            color: #555;
+        .site-logo:hover {
+            opacity: 0.9;
+        }
+        
+        .page-title {
+            font-size: 20px;
+            font-weight: 600;
+            color: rgba(255,255,255,0.9);
+        }
+        
+        .header-nav {
+            display: flex;
+            gap: 10px;
+            align-items: center;
+            flex-wrap: wrap;
+        }
+        
+        .nav-link {
+            color: white;
             text-decoration: none;
-            font-size: 15px;
-            transition: color 0.3s;
+            padding: 8px 16px;
+            border-radius: 8px;
+            transition: all 0.3s;
+            font-size: 14px;
+            font-weight: 500;
+            background: rgba(255,255,255,0.1);
+            display: flex;
+            align-items: center;
+            gap: 6px;
         }
         
-        .nav-links a:hover {
-            color: #667eea;
+        .nav-link:hover {
+            background: rgba(255,255,255,0.2);
+            transform: translateY(-1px);
+        }
+        
+        .nav-link.active {
+            background: rgba(255,255,255,0.25);
+        }
+        
+        .user-info {
+            padding: 8px 16px;
+            background: rgba(255,255,255,0.15);
+            border-radius: 8px;
+            font-size: 14px;
+            font-weight: 500;
         }
         
         .btn-login {
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-            color: white;
-            padding: 8px 20px;
-            border-radius: 6px;
-            text-decoration: none;
+            background: white !important;
+            color: #667eea !important;
             font-weight: 600;
-            transition: transform 0.2s;
+            padding: 8px 16px;
+            border-radius: 8px;
+            text-decoration: none;
+            transition: all 0.3s;
+            display: inline-block;
         }
         
         .btn-login:hover {
-            transform: translateY(-2px);
-            color: white;
+            background: rgba(255,255,255,0.9) !important;
+            color: #667eea !important;
+            transform: translateY(-1px);
         }
         
         .btn-logout {
-            background: #e0e0e0;
-            color: #555;
-            padding: 8px 20px;
-            border-radius: 6px;
-            text-decoration: none;
-            font-weight: 600;
-            border: none;
+            background: rgba(255,255,255,0.2);
+            color: white;
+            border: 1px solid rgba(255,255,255,0.3);
+            padding: 8px 16px;
+            border-radius: 8px;
             cursor: pointer;
-            transition: background 0.3s;
+            font-size: 14px;
+            font-weight: 500;
+            transition: all 0.3s;
         }
         
         .btn-logout:hover {
-            background: #d0d0d0;
+            background: rgba(255,255,255,0.3);
+            transform: translateY(-1px);
         }
         
-        /* Container principal */
         .container {
             max-width: 1200px;
-            margin: 60px auto;
-            padding: 0 20px;
-            flex: 1;
+            margin: 0 auto;
+            padding: 60px 40px;
         }
         
-        /* Hero section */
         .hero {
             text-align: center;
-            margin-bottom: 60px;
             color: white;
+            margin-bottom: 60px;
         }
         
         .hero h1 {
             font-size: 48px;
-            margin-bottom: 15px;
             font-weight: 700;
+            margin-bottom: 20px;
         }
         
         .hero p {
             font-size: 20px;
-            opacity: 0.95;
+            opacity: 0.9;
         }
         
-        /* Grille d'outils */
         .tools-grid {
             display: grid;
             grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
-            gap: 25px;
-            margin-bottom: 40px;
+            gap: 30px;
         }
         
         .tool-card {
-            background: rgba(255, 255, 255, 0.98);
-            border-radius: 12px;
+            background: white;
+            border-radius: 20px;
             padding: 30px;
-            box-shadow: 0 2px 15px rgba(0,0,0,0.08);
-            transition: transform 0.3s, box-shadow 0.3s;
             text-decoration: none;
             color: #333;
+            transition: all 0.3s;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.2);
             position: relative;
+            overflow: hidden;
         }
         
         .tool-card:hover {
             transform: translateY(-5px);
-            box-shadow: 0 8px 25px rgba(0,0,0,0.12);
-        }
-        
-        .tool-card.locked {
-            opacity: 0.7;
-        }
-        
-        .tool-icon {
-            font-size: 48px;
-            margin-bottom: 15px;
-        }
-        
-        .tool-card h2 {
-            font-size: 22px;
-            margin-bottom: 10px;
-            color: #667eea;
-        }
-        
-        .tool-card p {
-            color: #666;
-            line-height: 1.6;
-            font-size: 15px;
+            box-shadow: 0 20px 40px rgba(0,0,0,0.3);
         }
         
         .tool-badge {
             position: absolute;
             top: 15px;
             right: 15px;
-            background: #e8f5e9;
-            color: #2e7d32;
-            padding: 4px 10px;
-            border-radius: 4px;
+            background: #e0e7ff;
+            color: #667eea;
+            padding: 5px 12px;
+            border-radius: 20px;
             font-size: 12px;
             font-weight: 600;
         }
         
         .tool-badge.premium {
-            background: #fff3e0;
-            color: #e65100;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+        }
+        
+        .tool-icon {
+            font-size: 48px;
+            margin-bottom: 20px;
+        }
+        
+        .tool-card h2 {
+            font-size: 24px;
+            margin-bottom: 10px;
+            color: #333;
+        }
+        
+        .tool-card p {
+            color: #666;
+            line-height: 1.6;
+        }
+        
+        .locked {
+            opacity: 0.7;
+            cursor: not-allowed;
+        }
+        
+        .locked:hover {
+            transform: none;
         }
         
         .lock-icon {
@@ -185,65 +235,86 @@ $user = getCurrentUser();
             font-size: 24px;
         }
         
-        /* Footer */
-        .site-footer {
-            background: rgba(255, 255, 255, 0.98);
-            padding: 20px;
+        .cta-section {
+            text-align: center;
             margin-top: 60px;
-            box-shadow: 0 -1px 3px rgba(0,0,0,0.05);
+            padding: 40px;
+            background: rgba(255,255,255,0.1);
             backdrop-filter: blur(10px);
+            border-radius: 20px;
+            color: white;
         }
-
+        
+        .cta-section h2 {
+            font-size: 32px;
+            margin-bottom: 20px;
+        }
+        
+        .cta-section p {
+            font-size: 18px;
+            margin-bottom: 30px;
+            opacity: 0.9;
+        }
+        
+        .cta-button {
+            display: inline-block;
+            background: white;
+            color: #667eea;
+            padding: 15px 40px;
+            border-radius: 12px;
+            text-decoration: none;
+            font-weight: 600;
+            font-size: 18px;
+            transition: all 0.3s;
+        }
+        
+        .cta-button:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 10px 25px rgba(255,255,255,0.3);
+        }
+        
+        footer {
+            margin-top: 80px;
+            padding: 40px;
+            background: rgba(0,0,0,0.2);
+            color: white;
+            text-align: center;
+        }
+        
         .footer-content {
-            max-width: 1200px;
-            margin: 0 auto;
             display: flex;
             justify-content: space-between;
             align-items: center;
+            max-width: 1200px;
+            margin: 0 auto;
             flex-wrap: wrap;
-            gap: 15px;
+            gap: 20px;
         }
-
-        .footer-left {
+        
+        .footer-links {
             display: flex;
-            align-items: center;
-            gap: 8px;
-            color: #666;
-            font-size: 14px;
+            gap: 20px;
         }
-
-        .footer-brand {
-            font-weight: 600;
-            color: #667eea;
+        
+        .footer-links a {
+            color: white;
+            text-decoration: none;
+            opacity: 0.8;
+            transition: opacity 0.3s;
         }
-
-        .footer-tagline {
-            color: #999;
+        
+        .footer-links a:hover {
+            opacity: 1;
         }
-
-        .footer-separator {
-            color: #ddd;
-        }
-
+        
+        .footer-left,
         .footer-right {
             display: flex;
+            gap: 20px;
             align-items: center;
-            gap: 8px;
-            font-size: 13px;
         }
-
-        .footer-right a {
-            color: #666;
-            text-decoration: none;
-            transition: color 0.3s;
-        }
-
-        .footer-right a:hover {
-            color: #667eea;
-        }
-
-        .footer-copyright {
-            text-align: center;
+        
+        .footer-note {
             color: #aaa;
             font-size: 12px;
             margin-top: 15px;
@@ -279,20 +350,39 @@ $user = getCurrentUser();
     </style>
 </head>
 <body>
-    <nav>
-        <a href="index.php" class="logo">🧘 Zenu</a>
-        <div class="nav-links">
-            <?php if ($user): ?>
-                <span>Bonjour, <?= htmlspecialchars($user['username']) ?></span>
-                <a href="dashboard.php">Mon espace</a>
-                <form action="logout.php" method="POST" style="display: inline;">
-                    <button type="submit" class="btn-logout">Déconnexion</button>
-                </form>
-            <?php else: ?>
-                <a href="login.php" class="btn-login">Se connecter</a>
-            <?php endif; ?>
+    <header class="site-header">
+        <div class="header-container">
+            <div class="header-content">
+                <div class="header-left">
+                    <a href="index.php" class="site-logo">🧘 Zenu</a>
+                    <span class="page-title">Accueil</span>
+                </div>
+                
+                <nav class="header-nav">
+                    <?php if ($user): ?>                
+                        <a href="convertisseur.php" class="nav-link">
+                            🖼️ Convertisseur
+                        </a>
+						<a href="dashboard.php" class="nav-link">
+                            📊 Mes images
+                        </a>
+						<span class="user-info">👤 <?= htmlspecialchars($user['username']) ?></span>
+                        <form action="logout.php" method="POST" style="display: inline;">
+                            <button type="submit" class="btn-logout">Déconnexion</button>
+                        </form>
+                    <?php else: ?>
+                        <a href="convertisseur.php" class="nav-link">
+                            🖼️ Convertisseur
+                        </a>
+                        <a href="register.php" class="nav-link">
+                            ✨ S'inscrire
+                        </a>
+                        <a href="login.php" class="btn-login">Se connecter</a>
+                    <?php endif; ?>
+                </nav>
+            </div>
         </div>
-    </nav>
+    </header>
 
     <div class="container">
         <div class="hero">
@@ -309,69 +399,48 @@ $user = getCurrentUser();
                 <p>Redimensionnez et convertissez vos images en JPG facilement. Qualité ajustable et aperçu en temps réel.</p>
             </a>
 
-            <!-- Outil 2 : Convertisseur privé avec sauvegarde -->
-            <?php if ($user): ?>
-                <a href="convertisseur-prive.php" class="tool-card">
-                    <span class="tool-badge premium">Privé</span>
-                    <div class="tool-icon">💾</div>
-                    <h2>Convertisseur Privé</h2>
-                    <p>Convertissez et sauvegardez vos images dans votre espace personnel. Accédez-y depuis n'importe où.</p>
-                </a>
-            <?php else: ?>
+            <!-- Message pour les utilisateurs non connectés -->
+            <?php if (!$user): ?>
                 <div class="tool-card locked">
                     <span class="lock-icon">🔒</span>
-                    <div class="tool-icon">💾</div>
-                    <h2>Convertisseur Privé</h2>
-                    <p>Convertissez et sauvegardez vos images dans votre espace personnel. Accédez-y depuis n'importe où.</p>
-                    <p style="margin-top: 15px; color: #667eea; font-weight: 600;">
-                        <a href="login.php" style="color: #667eea;">Connectez-vous</a> pour accéder
-                    </p>
+                    <div class="tool-icon">🖼️</div>
+                    <h2>Mes Images</h2>
+                    <p>Gérez toutes vos images sauvegardées. Voir, télécharger, copier les URLs et supprimer.</p>
+                    <p style="margin-top: 15px; font-weight: 600; color: #667eea;">Connectez-vous pour accéder</p>
                 </div>
-            <?php endif; ?>
-            
-            <!-- Outil 3 : Gestionnaire d'images -->
-            <?php if ($user): ?>
+            <?php else: ?>
                 <a href="dashboard.php" class="tool-card">
                     <span class="tool-badge premium">Privé</span>
-                    <div class="tool-icon">📁</div>
+                    <div class="tool-icon">🖼️</div>
                     <h2>Mes Images</h2>
                     <p>Gérez toutes vos images sauvegardées. Voir, télécharger, copier les URLs et supprimer.</p>
                 </a>
-            <?php else: ?>
-                <div class="tool-card locked">
-                    <span class="lock-icon">🔒</span>
-                    <div class="tool-icon">📁</div>
-                    <h2>Mes Images</h2>
-                    <p>Gérez toutes vos images sauvegardées. Voir, télécharger, copier les URLs et supprimer.</p>
-                    <p style="margin-top: 15px; color: #667eea; font-weight: 600;">
-                        <a href="login.php" style="color: #667eea;">Connectez-vous</a> pour accéder
-                    </p>
-                </div>
             <?php endif; ?>
         </div>
+
+        <?php if (!$user): ?>
+        <div class="cta-section">
+            <h2>Prêt à commencer ?</h2>
+            <p>Créez votre compte gratuitement et profitez de tous nos outils</p>
+            <a href="register.php" class="cta-button">S'inscrire maintenant</a>
+        </div>
+        <?php endif; ?>
     </div>
-    
-    <footer class="site-footer">
+
+    <footer>
         <div class="footer-content">
             <div class="footer-left">
-                <span class="footer-brand">🧘 Zenu</span>
-                <span class="footer-separator">·</span>
-                <span class="footer-tagline">Outils simples et zen</span>
+                <span>© <?= date('Y') ?> Zenu</span>
+                <span>•</span>
+                <span>Tous droits réservés</span>
             </div>
-            
             <div class="footer-right">
-                <a href="mentions-legales.php">Mentions légales</a>
-                <span class="footer-separator">·</span>
-                <a href="cgu.php">CGU</a>
-                <span class="footer-separator">·</span>
-                <a href="privacy.php">Confidentialité</a>
-                <span class="footer-separator">·</span>
-                <a href="mailto:contact@zenu.fr">Contact</a>
+                <div class="footer-links">
+                    <a href="mentions-legales.php">Mentions légales</a>
+                    <a href="cgu.php">CGU</a>
+                    <a href="privacy.php">Confidentialité</a>
+                </div>
             </div>
-        </div>
-        
-        <div class="footer-copyright">
-            &copy; <?= date('Y') ?> Zenu
         </div>
     </footer>
 </body>
