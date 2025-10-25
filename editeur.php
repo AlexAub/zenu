@@ -23,13 +23,10 @@ if ($imageId > 0) {
     $stmt->execute([$imageId, $userId]);
     $image = $stmt->fetch();
 }
+
+// Inclure le header
+require_once 'header.php';
 ?>
-<!DOCTYPE html>
-<html lang="fr">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>🎨 Éditeur d'images - Zenu</title>
     
     <!-- Cropper.js pour le mode Avancé -->
     <link href="https://cdnjs.cloudflare.com/ajax/libs/cropperjs/1.6.1/cropper.min.css" rel="stylesheet">
@@ -39,57 +36,8 @@ if ($imageId > 0) {
     <script src="https://cdnjs.cloudflare.com/ajax/libs/fabric.js/5.3.0/fabric.min.js"></script>
     
     <style>
-        * {
-            margin: 0;
-            padding: 0;
-            box-sizing: border-box;
-        }
-        
         body {
-            font-family: 'Segoe UI', system-ui, sans-serif;
             background: #f5f7fa;
-        }
-        
-        /* Header */
-        .site-header {
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-            color: white;
-            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
-        }
-        
-        .header-container {
-            max-width: 1600px;
-            margin: 0 auto;
-            padding: 15px 20px;
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-        }
-        
-        .site-logo {
-            font-size: 24px;
-            font-weight: 700;
-            color: white;
-            text-decoration: none;
-        }
-        
-        .header-nav {
-            display: flex;
-            gap: 10px;
-            align-items: center;
-        }
-        
-        .nav-link {
-            color: white;
-            text-decoration: none;
-            padding: 8px 16px;
-            border-radius: 8px;
-            background: rgba(255,255,255,0.1);
-            transition: all 0.3s;
-        }
-        
-        .nav-link:hover {
-            background: rgba(255,255,255,0.2);
         }
         
         /* Conteneur principal */
@@ -442,19 +390,7 @@ if ($imageId > 0) {
         }
     </style>
 </head>
-<body>
-    <!-- Header -->
-    <header class="site-header">
-        <div class="header-container">
-            <a href="index.php" class="site-logo">🧘 Zenu</a>
-            <nav class="header-nav">
-                <a href="dashboard.php" class="nav-link">📊 Mes images</a>
-                <a href="editeur.php" class="nav-link">🎨 Éditeur</a>
-                <a href="logout.php" class="nav-link">🚪 Déconnexion</a>
-            </nav>
-        </div>
-    </header>
-    
+<body>    
     <!-- Conteneur principal -->
     <div class="editor-container">
         <!-- Sélecteur de mode -->
@@ -1173,6 +1109,11 @@ if ($imageId > 0) {
                 const formData = new FormData();
                 formData.append('image', blob, 'edited-image.jpg');
                 formData.append('mode', mode);
+                
+                // Ajouter l'ID de l'image originale si on édite une image existante
+                <?php if ($image): ?>
+                formData.append('original_image_id', <?= $image['id'] ?>);
+                <?php endif; ?>
                 
                 // Envoyer au serveur
                 fetch('api/save-edited-image.php', {

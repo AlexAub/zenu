@@ -59,8 +59,33 @@ if (!is_dir($thumb_dir)) {
 
 // Générer un nom de fichier unique avec préfixe du mode
 $extension = 'jpg'; // Toujours en JPG pour la qualité
-$prefix = $mode === 'simple' ? 'edited' : ($mode === 'advanced' ? 'cropped' : 'designed');
-$filename = $prefix . '_' . uniqid() . '_' . date('YmdHis') . '.' . $extension;
+$prefix = match($mode) {
+    'simple' => 'edited',
+    'advanced' => 'cropped',
+    'pro' => 'designed',
+    default => 'modified'
+};
+
+// Si une image originale est éditée, récupérer son nom
+$originalName = 'image';
+if (isset($_POST['original_image_id']) && !empty($_POST['original_image_id'])) {
+    $stmt = $pdo->prepare("SELECT original_filename, filename FROM images WHERE id = ? AND user_id = ?");
+    $stmt->execute([(int)$_POST['original_image_id'], $userId]);
+    $origImage = $stmt->fetch();
+    if ($origImage) {
+        // Utiliser le nom original sans extension
+        $originalName = pathinfo($origImage['original_filename'], PATHINFO_FILENAME);
+    }
+}
+
+// Nettoyer le nom pour éviter les caractères problématiques
+$cleanName = preg_replace('/[^a-zA-Z0-9_-]/', '_', $originalName);
+$cleanName = preg_replace('/_+/', '_', $cleanName);
+$cleanName = trim($cleanName, '_');
+
+// Nom de fichier : prefix_nom_timestamp.jpg
+$timestamp = date('YmdHis');
+$filename = $prefix . '_' . $cleanName . '_' . $timestamp . '.' . $extension;
 $filepath = $user_dir . '/' . $filename;
 $thumb_path = $thumb_dir . '/' . $filename;
 
@@ -87,14 +112,21 @@ $thumbSuccess = generateThumbnail($filepath, $thumb_path, 300, 300);
 $db_filepath = 'uploads/' . $user_folder . '/' . $filename;
 $db_thumb_path = $thumbSuccess ? 'uploads/thumbnails/' . $user_folder . '/' . $filename : null;
 
-// Nom d'affichage selon le mode
-$display_name = match($mode) {
-    'simple' => 'Image éditée',
-    'advanced' => 'Image recadrée',
-    'pro' => 'Design personnalisé',
-    default => 'Image modifiée'
-};
-$original_filename = $display_name . ' ' . date('Y-m-d H:i');
+// Nom d'affichage : utiliser le nom nettoyé au lieu de "Image éditée date"
+$display_name = $cleanName;
+
+// Si le nom est trop générique, ajouter le préfixe du mode
+if (in_array($cleanName, ['image', 'photo', 'img'])) {
+    $modeLabel = match($mode) {
+        'simple' => 'Editee',
+        'advanced' => 'Recadree',
+        'pro' => 'Designee',
+        default => 'Modifiee'
+    };
+    $display_name = $cleanName . '_' . $modeLabel;
+}
+
+$original_filename = $display_name;
 
 // Insérer dans la base de données
 try {
