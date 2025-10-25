@@ -46,6 +46,7 @@ Importez les fichiers SQL pour créer et mettre à jour la structure de la base 
 mysql -u root -p nom_base < setup-sql.sql
 mysql -u root -p nom_base < update-security.sql
 mysql -u root -p nom_base < security-update.sql
+mysql -u root -p nom_base < editor-database-update.sql
 ```
 
 **Note** : Remplacez `nom_base` par le nom de votre base de données. Assurez-vous que l'utilisateur MySQL spécifié a les permissions nécessaires.
