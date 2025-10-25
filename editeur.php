@@ -173,6 +173,12 @@ require_once 'header.php';
         
         #fabricCanvas {
             border: 1px solid #e0e0e0;
+            cursor: crosshair !important;
+        }
+        
+        /* Quand on survole un objet dans le canvas */
+        .canvas-container {
+            position: relative !important;
         }
         
         /* Contrôles */
@@ -390,7 +396,7 @@ require_once 'header.php';
         }
     </style>
 </head>
-<body>    
+<body>   
     <!-- Conteneur principal -->
     <div class="editor-container">
         <!-- Sélecteur de mode -->
@@ -412,6 +418,32 @@ require_once 'header.php';
             
             <div class="alert alert-info" id="modeDescription">
                 Mode Simple : Ajustez luminosité, contraste, saturation et effectuez des rotations simples.
+            </div>
+            
+            <!-- Instructions spécifiques par mode -->
+            <div id="modeInstructions" style="background: #e3f2fd; padding: 15px; border-radius: 8px; margin-top: 10px; font-size: 13px; line-height: 1.6;">
+                <strong>💡 Comment utiliser :</strong>
+                <div id="instructionsSimple" style="display: block;">
+                    1️⃣ Chargez une image à gauche<br>
+                    2️⃣ Utilisez les sliders à droite pour ajuster<br>
+                    3️⃣ L'aperçu se met à jour en temps réel<br>
+                    4️⃣ Cliquez sur "Sauvegarder" quand c'est prêt
+                </div>
+                <div id="instructionsAdvanced" style="display: none;">
+                    1️⃣ Chargez une image à gauche<br>
+                    2️⃣ Sélectionnez un ratio ou utilisez "Libre"<br>
+                    3️⃣ Déplacez et redimensionnez la zone de recadrage<br>
+                    4️⃣ Cliquez sur "Recadrer & Sauvegarder"
+                </div>
+                <div id="instructionsPro" style="display: none;">
+                    1️⃣ Chargez une image à gauche<br>
+                    2️⃣ Ajoutez du texte ou des formes avec les boutons<br>
+                    3️⃣ <strong>Cliquez sur un élément pour le sélectionner</strong><br>
+                    4️⃣ Déplacez-le en le faisant glisser<br>
+                    5️⃣ Redimensionnez avec les coins<br>
+                    6️⃣ Double-cliquez sur le texte pour le modifier<br>
+                    7️⃣ Cliquez sur "Sauvegarder" quand c'est prêt
+                </div>
             </div>
         </div>
         
@@ -576,6 +608,12 @@ require_once 'header.php';
                 
                 <!-- MODE PRO -->
                 <div id="proControls" class="mode-content">
+                    <!-- Indicateur de sélection -->
+                    <div id="selectionIndicator" style="display: none; background: #d4edda; border: 2px solid #28a745; padding: 12px; border-radius: 8px; margin-bottom: 15px; font-size: 13px;">
+                        <strong>✅ Élément sélectionné</strong><br>
+                        <span style="font-size: 12px; color: #155724;">Déplacez-le, redimensionnez-le ou supprimez-le</span>
+                    </div>
+                    
                     <div class="control-group">
                         <label class="control-label">✏️ Ajouter du texte</label>
                         <input type="text" id="textInput" placeholder="Votre texte..." style="margin-bottom: 8px;">
@@ -640,8 +678,47 @@ require_once 'header.php';
             simpleCtx = simpleCanvas.getContext('2d');
             
             // Initialiser Fabric.js
-            fabricCanvas = new fabric.Canvas('fabricCanvas');
+            fabricCanvas = new fabric.Canvas('fabricCanvas', {
+                selection: true,
+                interactive: true,
+                enableRetinaScaling: true
+            });
             fabricCanvas.backgroundColor = '#ffffff';
+            
+            // Debug : Logger tous les événements
+            fabricCanvas.on('mouse:down', function(e) {
+                console.log('Click détecté', e.target ? 'sur objet' : 'sur canvas vide');
+                if (e.target) {
+                    console.log('Type d\'objet:', e.target.type);
+                }
+            });
+            
+            // Listener pour la sélection d'objets dans le mode Pro
+            fabricCanvas.on('selection:created', function(e) {
+                console.log('Sélection créée:', e.selected);
+                const indicator = document.getElementById('selectionIndicator');
+                if (indicator) indicator.style.display = 'block';
+            });
+            
+            fabricCanvas.on('selection:updated', function(e) {
+                console.log('Sélection mise à jour:', e.selected);
+                const indicator = document.getElementById('selectionIndicator');
+                if (indicator) indicator.style.display = 'block';
+            });
+            
+            fabricCanvas.on('selection:cleared', function() {
+                console.log('Sélection effacée');
+                const indicator = document.getElementById('selectionIndicator');
+                if (indicator) indicator.style.display = 'none';
+            });
+            
+            fabricCanvas.on('object:moving', function(e) {
+                console.log('Objet en mouvement:', e.target.type);
+            });
+            
+            fabricCanvas.on('object:scaling', function(e) {
+                console.log('Objet en redimensionnement:', e.target.type);
+            });
             
             // Upload zone
             const uploadZone = document.getElementById('uploadZone');
@@ -911,18 +988,38 @@ require_once 'header.php';
             fabricCanvas.clear();
             
             fabric.Image.fromURL(img.src, function(fabricImg) {
-                const scale = Math.min(
-                    fabricCanvas.width / fabricImg.width,
-                    fabricCanvas.height / fabricImg.height
-                );
+                // Calculer les dimensions pour que l'image tienne dans le canvas
+                const maxWidth = 800;
+                const maxHeight = 600;
+                let scale = 1;
+                
+                if (fabricImg.width > maxWidth || fabricImg.height > maxHeight) {
+                    scale = Math.min(
+                        maxWidth / fabricImg.width,
+                        maxHeight / fabricImg.height
+                    );
+                }
+                
+                // Redimensionner le canvas pour correspondre à l'image
+                fabricCanvas.setWidth(fabricImg.width * scale);
+                fabricCanvas.setHeight(fabricImg.height * scale);
                 
                 fabricImg.set({
                     scaleX: scale,
                     scaleY: scale,
-                    selectable: false
+                    selectable: false,
+                    evented: false,
+                    // CRITIQUE : Empêcher l'image de bloquer les interactions
+                    hoverCursor: 'default'
                 });
                 
-                fabricCanvas.setBackgroundImage(fabricImg, fabricCanvas.renderAll.bind(fabricCanvas));
+                // Utiliser setBackgroundImage au lieu de add() pour que l'image ne bloque pas
+                fabricCanvas.setBackgroundImage(fabricImg, function() {
+                    fabricCanvas.renderAll();
+                    // Réactiver complètement la sélection
+                    fabricCanvas.selection = true;
+                    fabricCanvas.interactive = true;
+                });
             });
         }
         
@@ -932,7 +1029,7 @@ require_once 'header.php';
             const textSize = document.getElementById('textSize');
             
             if (!textInput.value) {
-                alert('Veuillez entrer un texte');
+                alert('⚠️ Veuillez entrer un texte');
                 return;
             }
             
@@ -943,17 +1040,70 @@ require_once 'header.php';
                 fill: textColor.value,
                 stroke: '#000',
                 strokeWidth: 1,
-                fontFamily: 'Arial'
+                fontFamily: 'Arial',
+                // Activer l'édition
+                editable: true,
+                // Améliorer la sélection
+                selectable: true,
+                evented: true,
+                hasControls: true,
+                hasBorders: true,
+                lockUniScaling: false,
+                // Style de sélection
+                borderColor: '#667eea',
+                cornerColor: '#667eea',
+                cornerSize: 12,
+                cornerStyle: 'circle',
+                transparentCorners: false,
+                borderOpacityWhenMoving: 0.5,
+                // Curseur
+                hoverCursor: 'move',
+                moveCursor: 'move'
             });
             
             fabricCanvas.add(text);
             fabricCanvas.setActiveObject(text);
+            fabricCanvas.renderAll();
+            
+            // Centrer l'objet si hors écran
+            fabricCanvas.centerObject(text);
+            fabricCanvas.renderAll();
+            
+            // Message plus précis
+            alert('✅ Texte ajouté !\n\n' +
+                  '💡 Pour le modifier :\n' +
+                  '• CLIQUEZ dessus pour le sélectionner\n' +
+                  '• GLISSEZ pour le déplacer\n' +
+                  '• DOUBLE-CLIQUEZ pour éditer le texte\n' +
+                  '• Utilisez les COINS pour redimensionner');
+            
             textInput.value = '';
+            textInput.focus();
         }
         
         function addShape(type) {
             const color = document.getElementById('shapeColor').value;
             let shape;
+            
+            // Options communes pour une meilleure manipulation
+            const commonOptions = {
+                // Activer la sélection
+                selectable: true,
+                evented: true,
+                hasControls: true,
+                hasBorders: true,
+                lockUniScaling: false,
+                // Style de sélection
+                borderColor: '#667eea',
+                cornerColor: '#667eea',
+                cornerSize: 12,
+                cornerStyle: 'circle',
+                transparentCorners: false,
+                borderOpacityWhenMoving: 0.5,
+                // Curseur
+                hoverCursor: 'move',
+                moveCursor: 'move'
+            };
             
             switch(type) {
                 case 'rect':
@@ -964,7 +1114,8 @@ require_once 'header.php';
                         height: 100,
                         fill: color + '80',
                         stroke: color,
-                        strokeWidth: 3
+                        strokeWidth: 3,
+                        ...commonOptions
                     });
                     break;
                 case 'circle':
@@ -974,7 +1125,8 @@ require_once 'header.php';
                         radius: 50,
                         fill: color + '80',
                         stroke: color,
-                        strokeWidth: 3
+                        strokeWidth: 3,
+                        ...commonOptions
                     });
                     break;
                 case 'triangle':
@@ -985,13 +1137,15 @@ require_once 'header.php';
                         height: 100,
                         fill: color + '80',
                         stroke: color,
-                        strokeWidth: 3
+                        strokeWidth: 3,
+                        ...commonOptions
                     });
                     break;
                 case 'line':
                     shape = new fabric.Line([50, 100, 200, 100], {
                         stroke: color,
-                        strokeWidth: 5
+                        strokeWidth: 5,
+                        ...commonOptions
                     });
                     break;
                 case 'arrow':
@@ -1000,7 +1154,8 @@ require_once 'header.php';
                         top: 100,
                         fill: color,
                         stroke: color,
-                        strokeWidth: 2
+                        strokeWidth: 2,
+                        ...commonOptions
                     });
                     shape = arrow;
                     break;
@@ -1012,7 +1167,8 @@ require_once 'header.php';
                         stroke: color,
                         strokeWidth: 2,
                         scaleX: 0.8,
-                        scaleY: 0.8
+                        scaleY: 0.8,
+                        ...commonOptions
                     });
                     shape = star;
                     break;
@@ -1021,6 +1177,17 @@ require_once 'header.php';
             if (shape) {
                 fabricCanvas.add(shape);
                 fabricCanvas.setActiveObject(shape);
+                
+                // Centrer l'objet si hors écran
+                fabricCanvas.centerObject(shape);
+                fabricCanvas.renderAll();
+                
+                // Message détaillé
+                alert('✅ Forme ajoutée !\n\n' +
+                      '💡 Maintenant :\n' +
+                      '• CLIQUEZ pour sélectionner\n' +
+                      '• GLISSEZ pour déplacer\n' +
+                      '• Utilisez les COINS pour redimensionner');
             }
         }
         
@@ -1028,17 +1195,21 @@ require_once 'header.php';
             const activeObject = fabricCanvas.getActiveObject();
             if (activeObject) {
                 fabricCanvas.remove(activeObject);
+                fabricCanvas.renderAll();
+                alert('✅ Élément supprimé');
+            } else {
+                alert('⚠️ Aucun élément sélectionné. Cliquez d\'abord sur un élément pour le sélectionner.');
             }
         }
         
         function clearCanvas() {
-            if (confirm('Supprimer tous les éléments (l\'image de fond sera conservée) ?')) {
+            if (confirm('⚠️ Supprimer tous les éléments (l\'image de fond sera conservée) ?')) {
                 const objects = fabricCanvas.getObjects();
                 objects.forEach(obj => {
-                    if (obj.type !== 'image') {
-                        fabricCanvas.remove(obj);
-                    }
+                    fabricCanvas.remove(obj);
                 });
+                fabricCanvas.renderAll();
+                alert('✅ Tous les éléments ont été supprimés');
             }
         }
         
@@ -1066,6 +1237,36 @@ require_once 'header.php';
                 pro: 'Mode Pro : Ajoutez du texte, des formes et des annotations à votre image.'
             };
             document.getElementById('modeDescription').textContent = descriptions[mode];
+            
+            // Mettre à jour les instructions
+            document.getElementById('instructionsSimple').style.display = mode === 'simple' ? 'block' : 'none';
+            document.getElementById('instructionsAdvanced').style.display = mode === 'advanced' ? 'block' : 'none';
+            document.getElementById('instructionsPro').style.display = mode === 'pro' ? 'block' : 'none';
+            
+            // IMPORTANT : Nettoyer complètement avant de recharger
+            // Réinitialiser les filtres du mode simple
+            if (currentMode !== 'simple') {
+                filters = { brightness: 100, contrast: 100, saturation: 100, blur: 0 };
+                currentRotation = 0;
+                currentFlipH = false;
+                updateSliders();
+            }
+            
+            // Détruire cropper si on quitte le mode avancé
+            if (cropper && mode !== 'advanced') {
+                cropper.destroy();
+                cropper = null;
+            }
+            
+            // Nettoyer le canvas Fabric si on quitte le mode pro
+            if (mode !== 'pro') {
+                fabricCanvas.clear();
+            }
+            
+            // Cacher tous les canvas
+            simpleCanvas.style.display = 'none';
+            document.getElementById('cropperImage').style.display = 'none';
+            document.getElementById('fabricCanvas').style.display = 'none';
             
             // Recharger l'image dans le nouveau mode
             if (originalImage) {
