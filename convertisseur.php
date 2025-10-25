@@ -1,19 +1,9 @@
 <?php
-// Démarrer la session si elle n'est pas déjà démarrée
-if (session_status() === PHP_SESSION_NONE) {
-    session_start();
-}
+// Inclure config.php qui gère la session et la connexion à la BDD
+require_once 'config.php';
 
-// Fonction simple pour vérifier si l'utilisateur est connecté
-$user = null;
-if (isset($_SESSION['user_id'])) {
-    // Si vous avez config.php, vous pouvez récupérer les infos complètes de l'utilisateur
-    // Sinon, on crée un objet simple avec l'username de la session
-    $user = [
-        'id' => $_SESSION['user_id'],
-        'username' => $_SESSION['username'] ?? 'Utilisateur'
-    ];
-}
+// Récupérer l'utilisateur actuel (retourne null si non connecté)
+$user = getCurrentUser();
 ?>
 <!DOCTYPE html>
 <html lang="fr">
