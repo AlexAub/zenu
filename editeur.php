@@ -172,9 +172,9 @@ require_once 'header.php';
         }
         
         #fabricCanvas {
-            border: 1px solid #e0e0e0;
-            cursor: crosshair !important;
-        }
+			border: 1px solid #e0e0e0;
+			/* Retirer le cursor: crosshair pour permettre aux objets de définir leurs propres curseurs */
+		}
         
         /* Quand on survole un objet dans le canvas */
         .canvas-container {
@@ -677,13 +677,27 @@ require_once 'header.php';
             simpleCanvas = document.getElementById('editorCanvas');
             simpleCtx = simpleCanvas.getContext('2d');
             
-            // Initialiser Fabric.js
-            fabricCanvas = new fabric.Canvas('fabricCanvas', {
-                selection: true,
-                interactive: true,
-                enableRetinaScaling: true
-            });
-            fabricCanvas.backgroundColor = '#ffffff';
+            // Initialiser Fabric.js avec toutes les options d'interaction
+		fabricCanvas = new fabric.Canvas('fabricCanvas', {
+			selection: true,
+			interactive: true,
+			enableRetinaScaling: true,
+			// Options supplémentaires pour améliorer l'interaction
+			preserveObjectStacking: true,
+			renderOnAddRemove: true,
+			skipTargetFind: false,
+			perPixelTargetFind: true,
+			targetFindTolerance: 5,
+			// Styles de sélection
+			selectionColor: 'rgba(102, 126, 234, 0.1)',
+			selectionBorderColor: '#667eea',
+			selectionLineWidth: 2
+		});
+		fabricCanvas.backgroundColor = '#ffffff';
+
+		// S'assurer que le canvas peut recevoir les événements
+		fabricCanvas.selection = true;
+		fabricCanvas.interactive = true;
             
             // Debug : Logger tous les événements
             fabricCanvas.on('mouse:down', function(e) {
@@ -719,6 +733,19 @@ require_once 'header.php';
             fabricCanvas.on('object:scaling', function(e) {
                 console.log('Objet en redimensionnement:', e.target.type);
             });
+			
+			// Gestionnaire pour mettre à jour le curseur en fonction du contexte
+			fabricCanvas.on('mouse:over', function(e) {
+			if (e.target) {
+				fabricCanvas.hoverCursor = 'move';
+				} else {
+				fabricCanvas.defaultCursor = 'default';
+				}
+			});
+
+			fabricCanvas.on('mouse:out', function(e) {
+				fabricCanvas.defaultCursor = 'default';
+			});
             
             // Upload zone
             const uploadZone = document.getElementById('uploadZone');
@@ -980,48 +1007,58 @@ require_once 'header.php';
         }
         
         // MODE PRO
-        function loadProMode(img) {
-            document.getElementById('fabricCanvas').style.display = 'block';
-            simpleCanvas.style.display = 'none';
-            document.getElementById('cropperImage').style.display = 'none';
+		function loadProMode(img) {
+			document.getElementById('fabricCanvas').style.display = 'block';
+			simpleCanvas.style.display = 'none';
+			document.getElementById('cropperImage').style.display = 'none';
+    
+			// Nettoyer complètement le canvas
+			fabricCanvas.clear();
+			fabricCanvas.backgroundColor = '#ffffff';
+    
+			fabric.Image.fromURL(img.src, function(fabricImg) {
+			// Calculer les dimensions pour que l'image tienne dans le canvas
+			const maxWidth = 800;
+			const maxHeight = 600;
+			let scale = 1;
+        
+			if (fabricImg.width > maxWidth || fabricImg.height > maxHeight) {
+				scale = Math.min(
+					maxWidth / fabricImg.width,
+					maxHeight / fabricImg.height
+				);
+			}
+        
+			// Redimensionner le canvas pour correspondre à l'image
+			fabricCanvas.setWidth(fabricImg.width * scale);
+			fabricCanvas.setHeight(fabricImg.height * scale);
+        
+			fabricImg.set({
+				scaleX: scale,
+				scaleY: scale,
+				selectable: false,
+				evented: false,
+				hoverCursor: 'default'
+        });
+        
+        // Utiliser setBackgroundImage au lieu de add() pour que l'image ne bloque pas
+        fabricCanvas.setBackgroundImage(fabricImg, function() {
+            // CRITIQUE : Réactiver complètement toutes les interactions
+            fabricCanvas.selection = true;
+            fabricCanvas.interactive = true;
+            fabricCanvas.skipTargetFind = false;
             
-            fabricCanvas.clear();
+            // Forcer le rendu
+            fabricCanvas.renderAll();
             
-            fabric.Image.fromURL(img.src, function(fabricImg) {
-                // Calculer les dimensions pour que l'image tienne dans le canvas
-                const maxWidth = 800;
-                const maxHeight = 600;
-                let scale = 1;
-                
-                if (fabricImg.width > maxWidth || fabricImg.height > maxHeight) {
-                    scale = Math.min(
-                        maxWidth / fabricImg.width,
-                        maxHeight / fabricImg.height
-                    );
-                }
-                
-                // Redimensionner le canvas pour correspondre à l'image
-                fabricCanvas.setWidth(fabricImg.width * scale);
-                fabricCanvas.setHeight(fabricImg.height * scale);
-                
-                fabricImg.set({
-                    scaleX: scale,
-                    scaleY: scale,
-                    selectable: false,
-                    evented: false,
-                    // CRITIQUE : Empêcher l'image de bloquer les interactions
-                    hoverCursor: 'default'
-                });
-                
-                // Utiliser setBackgroundImage au lieu de add() pour que l'image ne bloque pas
-                fabricCanvas.setBackgroundImage(fabricImg, function() {
-                    fabricCanvas.renderAll();
-                    // Réactiver complètement la sélection
-                    fabricCanvas.selection = true;
-                    fabricCanvas.interactive = true;
-                });
-            });
-        }
+            // IMPORTANT : Réinitialiser le curseur du canvas
+            fabricCanvas.defaultCursor = 'default';
+            fabricCanvas.hoverCursor = 'move';
+            
+            console.log('Canvas Pro chargé - Interactions activées');
+        });
+    });
+}
         
         function addText() {
             const textInput = document.getElementById('textInput');
