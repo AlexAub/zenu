@@ -119,6 +119,9 @@ require_once 'header.php';
             flex-direction: column;
             align-items: center;
             justify-content: center;
+            pointer-events: auto !important;
+            position: relative;
+            z-index: 1;
         }
         
         .sidebar-title {
@@ -176,9 +179,26 @@ require_once 'header.php';
 			/* Retirer le cursor: crosshair pour permettre aux objets de définir leurs propres curseurs */
 		}
         
-        /* Quand on survole un objet dans le canvas */
+        /* CRITICAL : S'assurer que le canvas reçoit les événements de souris */
         .canvas-container {
             position: relative !important;
+            pointer-events: auto !important;
+            z-index: 10 !important;
+        }
+        
+        .canvas-container canvas {
+            pointer-events: auto !important;
+        }
+        
+        /* S'assurer que rien ne bloque le canvas */
+        .upper-canvas {
+            pointer-events: auto !important;
+            z-index: 12 !important;
+            position: relative !important;
+        }
+        
+        .lower-canvas {
+            z-index: 11 !important;
         }
         
         /* Contrôles */
@@ -351,12 +371,6 @@ require_once 'header.php';
             margin-bottom: 15px;
         }
         
-        .shape-tools {
-            display: grid;
-            grid-template-columns: repeat(3, 1fr);
-            gap: 8px;
-        }
-        
         .tool-btn {
             padding: 12px;
             border: 2px solid #e0e0e0;
@@ -372,7 +386,35 @@ require_once 'header.php';
             background: #f8f9ff;
         }
         
-        /* Presets de crop */
+        /* Boutons de style de texte */
+        .style-btn {
+            padding: 8px;
+            border: 2px solid #e0e0e0;
+            border-radius: 6px;
+            background: white;
+            cursor: pointer;
+            font-size: 14px;
+            transition: all 0.3s;
+            font-weight: 500;
+        }
+        
+        .style-btn:hover {
+            border-color: #667eea;
+            background: #f8f9ff;
+            transform: translateY(-1px);
+        }
+        
+        .style-btn.active {
+            border-color: #667eea;
+            background: #667eea;
+            color: white;
+        }
+        
+        .shape-tools {
+            display: grid;
+            grid-template-columns: repeat(4, 1fr);
+            gap: 8px;
+        }
         .crop-presets {
             display: grid;
             grid-template-columns: 1fr 1fr;
@@ -611,21 +653,87 @@ require_once 'header.php';
                     <!-- Indicateur de sélection -->
                     <div id="selectionIndicator" style="display: none; background: #d4edda; border: 2px solid #28a745; padding: 12px; border-radius: 8px; margin-bottom: 15px; font-size: 13px;">
                         <strong>✅ Élément sélectionné</strong><br>
-                        <span style="font-size: 12px; color: #155724;">Déplacez-le, redimensionnez-le ou supprimez-le</span>
+                        <span style="font-size: 12px; color: #155724;">Modifiez ses propriétés ci-dessous</span>
                     </div>
                     
+                    <!-- TEXTE -->
                     <div class="control-group">
                         <label class="control-label">✏️ Ajouter du texte</label>
                         <input type="text" id="textInput" placeholder="Votre texte..." style="margin-bottom: 8px;">
-                        <div class="text-tools">
+                        
+                        <!-- Police -->
+                        <select id="textFont" style="width: 100%; padding: 8px; margin-bottom: 8px; border: 1px solid #ddd; border-radius: 4px;">
+                            <option value="Arial">Arial</option>
+                            <option value="Helvetica">Helvetica</option>
+                            <option value="Times New Roman">Times New Roman</option>
+                            <option value="Georgia">Georgia</option>
+                            <option value="Courier New">Courier New</option>
+                            <option value="Verdana">Verdana</option>
+                            <option value="Impact">Impact</option>
+                            <option value="Comic Sans MS">Comic Sans MS</option>
+                            <option value="Trebuchet MS">Trebuchet MS</option>
+                            <option value="Palatino">Palatino</option>
+                            <option value="Garamond">Garamond</option>
+                            <option value="Bookman">Bookman</option>
+                            <option value="Avant Garde">Avant Garde</option>
+                        </select>
+                        
+                        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-bottom: 8px;">
+                            <!-- Taille -->
+                            <input type="number" id="textSize" value="40" min="10" max="300" placeholder="Taille" style="padding: 8px;">
+                            <!-- Couleur texte -->
                             <input type="color" id="textColor" value="#ffffff" title="Couleur du texte">
-                            <input type="number" id="textSize" value="40" min="10" max="200" placeholder="Taille" style="padding: 8px;">
                         </div>
+                        
+                        <!-- Style de texte -->
+                        <div style="display: grid; grid-template-columns: repeat(4, 1fr); gap: 5px; margin-bottom: 8px;">
+                            <button class="style-btn" onclick="toggleTextStyle('bold')" title="Gras">
+                                <strong>B</strong>
+                            </button>
+                            <button class="style-btn" onclick="toggleTextStyle('italic')" title="Italique">
+                                <em>I</em>
+                            </button>
+                            <button class="style-btn" onclick="toggleTextStyle('underline')" title="Souligné">
+                                <u>U</u>
+                            </button>
+                            <button class="style-btn" onclick="toggleTextStyle('linethrough')" title="Barré">
+                                <s>S</s>
+                            </button>
+                        </div>
+                        
+                        <!-- Alignement -->
+                        <div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 5px; margin-bottom: 8px;">
+                            <button class="style-btn" onclick="setTextAlign('left')" title="Gauche">
+                                ◀ G
+                            </button>
+                            <button class="style-btn" onclick="setTextAlign('center')" title="Centre">
+                                ◆ C
+                            </button>
+                            <button class="style-btn" onclick="setTextAlign('right')" title="Droite">
+                                ▶ D
+                            </button>
+                        </div>
+                        
+                        <!-- Contour -->
+                        <div style="display: grid; grid-template-columns: 1fr 80px; gap: 8px; margin-bottom: 8px;">
+                            <input type="color" id="textStrokeColor" value="#000000" title="Couleur du contour">
+                            <input type="number" id="textStrokeWidth" value="1" min="0" max="10" placeholder="Épaisseur" style="padding: 8px;">
+                        </div>
+                        
+                        <!-- Ombre -->
+                        <div style="margin-bottom: 8px;">
+                            <label style="display: flex; align-items: center; font-size: 13px;">
+                                <input type="checkbox" id="textShadow" style="margin-right: 5px;">
+                                Ajouter une ombre
+                            </label>
+                        </div>
+                        
                         <button class="btn btn-secondary btn-full btn-small" onclick="addText()">
                             ➕ Ajouter le texte
                         </button>
                     </div>
                     
+                    <!-- FORMES -->
                     <div class="control-group">
                         <label class="control-label">🔷 Formes</label>
                         <div class="shape-tools">
@@ -635,16 +743,90 @@ require_once 'header.php';
                             <button class="tool-btn" onclick="addShape('line')" title="Ligne">➖</button>
                             <button class="tool-btn" onclick="addShape('arrow')" title="Flèche">➡️</button>
                             <button class="tool-btn" onclick="addShape('star')" title="Étoile">⭐</button>
+                            <button class="tool-btn" onclick="addShape('polygon')" title="Hexagone">⬡</button>
+                            <button class="tool-btn" onclick="addShape('heart')" title="Cœur">❤️</button>
                         </div>
-                        <input type="color" id="shapeColor" value="#ff0000" style="margin-top: 8px;" title="Couleur des formes">
+                        
+                        <!-- Couleurs forme -->
+                        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-top: 8px;">
+                            <div>
+                                <label style="font-size: 12px; display: block; margin-bottom: 3px;">Remplissage</label>
+                                <input type="color" id="shapeFillColor" value="#ff0000" style="width: 100%;">
+                            </div>
+                            <div>
+                                <label style="font-size: 12px; display: block; margin-bottom: 3px;">Contour</label>
+                                <input type="color" id="shapeStrokeColor" value="#000000" style="width: 100%;">
+                            </div>
+                        </div>
+                        
+                        <!-- Opacité et épaisseur -->
+                        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-top: 8px;">
+                            <div>
+                                <label style="font-size: 12px; display: block; margin-bottom: 3px;">Opacité</label>
+                                <input type="range" id="shapeOpacity" min="0" max="100" value="80" style="width: 100%;">
+                            </div>
+                            <div>
+                                <label style="font-size: 12px; display: block; margin-bottom: 3px;">Bordure</label>
+                                <input type="number" id="shapeStrokeWidth" value="3" min="0" max="20" style="width: 100%; padding: 4px;">
+                            </div>
+                        </div>
+                        
+                        <!-- Style de bordure -->
+                        <div style="margin-top: 8px;">
+                            <label style="font-size: 12px; display: block; margin-bottom: 3px;">Style bordure</label>
+                            <select id="shapeStrokeDash" style="width: 100%; padding: 6px; border: 1px solid #ddd; border-radius: 4px;">
+                                <option value="solid">Solide</option>
+                                <option value="dashed">Pointillés</option>
+                                <option value="dotted">Points</option>
+                            </select>
+                        </div>
+                        
+                        <!-- Coins arrondis pour rectangle -->
+                        <div style="margin-top: 8px;">
+                            <label style="font-size: 12px; display: block; margin-bottom: 3px;">Coins arrondis (rectangle)</label>
+                            <input type="range" id="shapeRoundedCorners" min="0" max="50" value="0" style="width: 100%;">
+                        </div>
                     </div>
                     
+                    <!-- MODIFICATIONS -->
+                    <div class="control-group" id="modifyControls" style="display: none;">
+                        <label class="control-label">🎛️ Modifier la sélection</label>
+                        
+                        <!-- Opacité de l'objet sélectionné -->
+                        <div style="margin-bottom: 10px;">
+                            <label style="font-size: 12px; display: block; margin-bottom: 3px;">Opacité</label>
+                            <input type="range" id="objectOpacity" min="0" max="100" value="100" onchange="updateSelectedObjectOpacity()" style="width: 100%;">
+                        </div>
+                        
+                        <!-- Rotation -->
+                        <div style="margin-bottom: 10px;">
+                            <label style="font-size: 12px; display: block; margin-bottom: 3px;">Rotation (degrés)</label>
+                            <input type="number" id="objectRotation" value="0" min="-180" max="180" onchange="updateSelectedObjectRotation()" style="width: 100%; padding: 6px;">
+                        </div>
+                        
+                        <!-- Ordre des calques -->
+                        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-bottom: 10px;">
+                            <button class="btn btn-secondary btn-small" onclick="bringToFront()">⬆️ Avant</button>
+                            <button class="btn btn-secondary btn-small" onclick="sendToBack()">⬇️ Arrière</button>
+                        </div>
+                        
+                        <!-- Flip -->
+                        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 8px;">
+                            <button class="btn btn-secondary btn-small" onclick="flipObjectH()">↔️ Flip H</button>
+                            <button class="btn btn-secondary btn-small" onclick="flipObjectV()">↕️ Flip V</button>
+                        </div>
+                    </div>
+                    
+                    <!-- ACTIONS -->
                     <div class="control-group">
                         <label class="control-label">🎨 Actions</label>
                         <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 8px;">
-                            <button class="btn btn-secondary btn-small" onclick="deleteSelected()">🗑️ Suppr</button>
-                            <button class="btn btn-secondary btn-small" onclick="clearCanvas()">🧹 Tout</button>
+                            <button class="btn btn-secondary btn-small" onclick="duplicateSelected()">📋 Dupliquer</button>
+                            <button class="btn btn-secondary btn-small" onclick="deleteSelected()">🗑️ Supprimer</button>
                         </div>
+                        <button class="btn btn-secondary btn-full btn-small" onclick="clearCanvas()" style="margin-top: 8px;">
+                            🧹 Tout effacer
+                        </button>
                     </div>
                     
                     <button class="btn btn-primary btn-full" onclick="saveImage('pro')">
@@ -677,75 +859,10 @@ require_once 'header.php';
             simpleCanvas = document.getElementById('editorCanvas');
             simpleCtx = simpleCanvas.getContext('2d');
             
-            // Initialiser Fabric.js avec toutes les options d'interaction
-		fabricCanvas = new fabric.Canvas('fabricCanvas', {
-			selection: true,
-			interactive: true,
-			enableRetinaScaling: true,
-			// Options supplémentaires pour améliorer l'interaction
-			preserveObjectStacking: true,
-			renderOnAddRemove: true,
-			skipTargetFind: false,
-			perPixelTargetFind: true,
-			targetFindTolerance: 5,
-			// Styles de sélection
-			selectionColor: 'rgba(102, 126, 234, 0.1)',
-			selectionBorderColor: '#667eea',
-			selectionLineWidth: 2
-		});
-		fabricCanvas.backgroundColor = '#ffffff';
-
-		// S'assurer que le canvas peut recevoir les événements
-		fabricCanvas.selection = true;
-		fabricCanvas.interactive = true;
+            // NE PAS initialiser Fabric.js ici - il sera initialisé dans loadProMode()
+            // quand le canvas sera visible
             
-            // Debug : Logger tous les événements
-            fabricCanvas.on('mouse:down', function(e) {
-                console.log('Click détecté', e.target ? 'sur objet' : 'sur canvas vide');
-                if (e.target) {
-                    console.log('Type d\'objet:', e.target.type);
-                }
-            });
-            
-            // Listener pour la sélection d'objets dans le mode Pro
-            fabricCanvas.on('selection:created', function(e) {
-                console.log('Sélection créée:', e.selected);
-                const indicator = document.getElementById('selectionIndicator');
-                if (indicator) indicator.style.display = 'block';
-            });
-            
-            fabricCanvas.on('selection:updated', function(e) {
-                console.log('Sélection mise à jour:', e.selected);
-                const indicator = document.getElementById('selectionIndicator');
-                if (indicator) indicator.style.display = 'block';
-            });
-            
-            fabricCanvas.on('selection:cleared', function() {
-                console.log('Sélection effacée');
-                const indicator = document.getElementById('selectionIndicator');
-                if (indicator) indicator.style.display = 'none';
-            });
-            
-            fabricCanvas.on('object:moving', function(e) {
-                console.log('Objet en mouvement:', e.target.type);
-            });
-            
-            fabricCanvas.on('object:scaling', function(e) {
-                console.log('Objet en redimensionnement:', e.target.type);
-            });
-			
-			// Gestionnaire pour mettre à jour le curseur en fonction du contexte
-			fabricCanvas.on('mouse:over', function(e) {
-			if (e.target) {
-				fabricCanvas.hoverCursor = 'move';
-				} else {
-				fabricCanvas.defaultCursor = 'default';
-				}
-			});
-
-			fabricCanvas.on('mouse:out', function(e) {
-				fabricCanvas.defaultCursor = 'default';
-			});
+            // Listeners d'événements seront ajoutés lors de l'initialisation de Fabric.js
             
             // Upload zone
             const uploadZone = document.getElementById('uploadZone');
@@ -1012,8 +1129,83 @@ require_once 'header.php';
 			simpleCanvas.style.display = 'none';
 			document.getElementById('cropperImage').style.display = 'none';
     
-			// Nettoyer complètement le canvas
-			fabricCanvas.clear();
+			// CRITIQUE : Initialiser ou réinitialiser Fabric.js APRÈS que le canvas soit visible
+			if (!fabricCanvas) {
+				// Première initialisation
+				fabricCanvas = new fabric.Canvas('fabricCanvas', {
+					selection: true,
+					interactive: true,
+					enableRetinaScaling: true,
+					preserveObjectStacking: true,
+					renderOnAddRemove: true,
+					skipTargetFind: false,
+					perPixelTargetFind: true,
+					targetFindTolerance: 5,
+					selectionColor: 'rgba(102, 126, 234, 0.1)',
+					selectionBorderColor: '#667eea',
+					selectionLineWidth: 2
+				});
+				
+				// Ajouter les event listeners
+				fabricCanvas.on('mouse:down', function(e) {
+					console.log('Click détecté', e.target ? 'sur objet' : 'sur canvas vide');
+					if (e.target) {
+						console.log('Type d\'objet:', e.target.type);
+					}
+				});
+				
+				fabricCanvas.on('selection:created', function(e) {
+					console.log('Sélection créée:', e.selected);
+					const indicator = document.getElementById('selectionIndicator');
+					const modifyControls = document.getElementById('modifyControls');
+					if (indicator) indicator.style.display = 'block';
+					if (modifyControls) {
+						modifyControls.style.display = 'block';
+						const obj = fabricCanvas.getActiveObject();
+						if (obj) {
+							document.getElementById('objectOpacity').value = (obj.opacity || 1) * 100;
+							document.getElementById('objectRotation').value = obj.angle || 0;
+						}
+					}
+				});
+				
+				fabricCanvas.on('selection:updated', function(e) {
+					console.log('Sélection mise à jour:', e.selected);
+					const indicator = document.getElementById('selectionIndicator');
+					const modifyControls = document.getElementById('modifyControls');
+					if (indicator) indicator.style.display = 'block';
+					if (modifyControls) {
+						modifyControls.style.display = 'block';
+						const obj = fabricCanvas.getActiveObject();
+						if (obj) {
+							document.getElementById('objectOpacity').value = (obj.opacity || 1) * 100;
+							document.getElementById('objectRotation').value = obj.angle || 0;
+						}
+					}
+				});
+				
+				fabricCanvas.on('selection:cleared', function() {
+					console.log('Sélection effacée');
+					const indicator = document.getElementById('selectionIndicator');
+					const modifyControls = document.getElementById('modifyControls');
+					if (indicator) indicator.style.display = 'none';
+					if (modifyControls) modifyControls.style.display = 'none';
+				});
+				
+				fabricCanvas.on('object:moving', function(e) {
+					console.log('Objet en mouvement:', e.target.type);
+				});
+				
+				fabricCanvas.on('object:scaling', function(e) {
+					console.log('Objet en redimensionnement:', e.target.type);
+				});
+				
+				console.log('Fabric.js initialisé pour la première fois');
+			} else {
+				// Canvas déjà initialisé, juste le nettoyer
+				fabricCanvas.clear();
+			}
+			
 			fabricCanvas.backgroundColor = '#ffffff';
     
 			fabric.Image.fromURL(img.src, function(fabricImg) {
@@ -1048,14 +1240,41 @@ require_once 'header.php';
             fabricCanvas.interactive = true;
             fabricCanvas.skipTargetFind = false;
             
+            // IMPORTANT : NE PAS définir hoverCursor ici - laissez les objets le gérer
+            fabricCanvas.defaultCursor = 'default';
+            
+            // CRITIQUE : S'assurer que le canvas reçoit les événements de souris
+            const canvasElement = fabricCanvas.getElement();
+            const upperCanvas = fabricCanvas.upperCanvasEl;
+            const container = canvasElement?.parentElement;
+            
+            if (container) {
+                container.style.position = 'relative';
+                container.style.zIndex = '10';
+                container.style.pointerEvents = 'auto';
+            }
+            if (canvasElement) {
+                canvasElement.style.pointerEvents = 'auto';
+            }
+            if (upperCanvas) {
+                upperCanvas.style.pointerEvents = 'auto';
+                upperCanvas.style.position = 'absolute';
+                upperCanvas.style.zIndex = '12';
+            }
+            
             // Forcer le rendu
             fabricCanvas.renderAll();
             
-            // IMPORTANT : Réinitialiser le curseur du canvas
-            fabricCanvas.defaultCursor = 'default';
-            fabricCanvas.hoverCursor = 'move';
-            
             console.log('Canvas Pro chargé - Interactions activées');
+            console.log('Selection:', fabricCanvas.selection, 'Interactive:', fabricCanvas.interactive);
+            console.log('Canvas dimensions:', fabricCanvas.width, 'x', fabricCanvas.height);
+            console.log('Upper canvas dimensions:', upperCanvas?.width, 'x', upperCanvas?.height);
+            
+            // Vérifier que upper-canvas a bien une taille
+            setTimeout(() => {
+                const rect = upperCanvas?.getBoundingClientRect();
+                console.log('Upper canvas rect:', rect);
+            }, 100);
         });
     });
 }
@@ -1064,20 +1283,24 @@ require_once 'header.php';
             const textInput = document.getElementById('textInput');
             const textColor = document.getElementById('textColor');
             const textSize = document.getElementById('textSize');
+            const textFont = document.getElementById('textFont');
+            const textStrokeColor = document.getElementById('textStrokeColor');
+            const textStrokeWidth = document.getElementById('textStrokeWidth');
+            const textShadow = document.getElementById('textShadow');
             
             if (!textInput.value) {
                 alert('⚠️ Veuillez entrer un texte');
                 return;
             }
             
-            const text = new fabric.IText(textInput.value, {
+            const textOptions = {
                 left: 100,
                 top: 100,
                 fontSize: parseInt(textSize.value),
                 fill: textColor.value,
-                stroke: '#000',
-                strokeWidth: 1,
-                fontFamily: 'Arial',
+                stroke: textStrokeColor.value,
+                strokeWidth: parseInt(textStrokeWidth.value),
+                fontFamily: textFont.value,
                 // Activer l'édition
                 editable: true,
                 // Améliorer la sélection
@@ -1096,7 +1319,19 @@ require_once 'header.php';
                 // Curseur
                 hoverCursor: 'move',
                 moveCursor: 'move'
-            });
+            };
+            
+            // Ajouter l'ombre si activée
+            if (textShadow.checked) {
+                textOptions.shadow = {
+                    color: 'rgba(0,0,0,0.5)',
+                    blur: 10,
+                    offsetX: 5,
+                    offsetY: 5
+                };
+            }
+            
+            const text = new fabric.IText(textInput.value, textOptions);
             
             fabricCanvas.add(text);
             fabricCanvas.setActiveObject(text);
@@ -1106,24 +1341,71 @@ require_once 'header.php';
             fabricCanvas.centerObject(text);
             fabricCanvas.renderAll();
             
-            // Message plus précis
-            alert('✅ Texte ajouté !\n\n' +
-                  '💡 Pour le modifier :\n' +
-                  '• CLIQUEZ dessus pour le sélectionner\n' +
-                  '• GLISSEZ pour le déplacer\n' +
-                  '• DOUBLE-CLIQUEZ pour éditer le texte\n' +
-                  '• Utilisez les COINS pour redimensionner');
-            
             textInput.value = '';
-            textInput.focus();
+        }
+        
+        // Nouvelles fonctions pour le style de texte
+        function toggleTextStyle(style) {
+            const activeObject = fabricCanvas.getActiveObject();
+            if (!activeObject || activeObject.type !== 'i-text') {
+                alert('⚠️ Veuillez sélectionner un texte d\'abord');
+                return;
+            }
+            
+            switch(style) {
+                case 'bold':
+                    activeObject.set('fontWeight', activeObject.fontWeight === 'bold' ? 'normal' : 'bold');
+                    break;
+                case 'italic':
+                    activeObject.set('fontStyle', activeObject.fontStyle === 'italic' ? 'normal' : 'italic');
+                    break;
+                case 'underline':
+                    activeObject.set('underline', !activeObject.underline);
+                    break;
+                case 'linethrough':
+                    activeObject.set('linethrough', !activeObject.linethrough);
+                    break;
+            }
+            
+            fabricCanvas.renderAll();
+        }
+        
+        function setTextAlign(align) {
+            const activeObject = fabricCanvas.getActiveObject();
+            if (!activeObject || activeObject.type !== 'i-text') {
+                alert('⚠️ Veuillez sélectionner un texte d\'abord');
+                return;
+            }
+            
+            activeObject.set('textAlign', align);
+            fabricCanvas.renderAll();
         }
         
         function addShape(type) {
-            const color = document.getElementById('shapeColor').value;
+            const fillColor = document.getElementById('shapeFillColor').value;
+            const strokeColor = document.getElementById('shapeStrokeColor').value;
+            const opacity = parseInt(document.getElementById('shapeOpacity').value) / 100;
+            const strokeWidth = parseInt(document.getElementById('shapeStrokeWidth').value);
+            const strokeDash = document.getElementById('shapeStrokeDash').value;
+            const roundedCorners = parseInt(document.getElementById('shapeRoundedCorners').value);
+            
             let shape;
+            
+            // Convertir le style de trait en array pour Fabric.js
+            let strokeDashArray = null;
+            if (strokeDash === 'dashed') {
+                strokeDashArray = [10, 5];
+            } else if (strokeDash === 'dotted') {
+                strokeDashArray = [2, 3];
+            }
             
             // Options communes pour une meilleure manipulation
             const commonOptions = {
+                fill: fillColor,
+                stroke: strokeColor,
+                strokeWidth: strokeWidth,
+                strokeDashArray: strokeDashArray,
+                opacity: opacity,
                 // Activer la sélection
                 selectable: true,
                 evented: true,
@@ -1149,9 +1431,8 @@ require_once 'header.php';
                         top: 100,
                         width: 150,
                         height: 100,
-                        fill: color + '80',
-                        stroke: color,
-                        strokeWidth: 3,
+                        rx: roundedCorners,
+                        ry: roundedCorners,
                         ...commonOptions
                     });
                     break;
@@ -1160,9 +1441,6 @@ require_once 'header.php';
                         left: 100,
                         top: 100,
                         radius: 50,
-                        fill: color + '80',
-                        stroke: color,
-                        strokeWidth: 3,
                         ...commonOptions
                     });
                     break;
@@ -1172,42 +1450,60 @@ require_once 'header.php';
                         top: 100,
                         width: 100,
                         height: 100,
-                        fill: color + '80',
-                        stroke: color,
-                        strokeWidth: 3,
                         ...commonOptions
                     });
                     break;
                 case 'line':
                     shape = new fabric.Line([50, 100, 200, 100], {
-                        stroke: color,
-                        strokeWidth: 5,
-                        ...commonOptions
+                        stroke: strokeColor,
+                        strokeWidth: strokeWidth,
+                        strokeDashArray: strokeDashArray,
+                        ...commonOptions,
+                        fill: null
                     });
                     break;
                 case 'arrow':
-                    const arrow = new fabric.Path('M 0 0 L 100 0 L 100 -10 L 120 10 L 100 30 L 100 20 L 0 20 z', {
+                    shape = new fabric.Path('M 0 0 L 100 0 L 100 -10 L 120 10 L 100 30 L 100 20 L 0 20 z', {
                         left: 100,
                         top: 100,
-                        fill: color,
-                        stroke: color,
-                        strokeWidth: 2,
                         ...commonOptions
                     });
-                    shape = arrow;
                     break;
                 case 'star':
-                    const star = new fabric.Path('M 50 0 L 61 35 L 98 35 L 68 57 L 79 91 L 50 70 L 21 91 L 32 57 L 2 35 L 39 35 z', {
+                    shape = new fabric.Path('M 50 0 L 61 35 L 98 35 L 68 57 L 79 91 L 50 70 L 21 91 L 32 57 L 2 35 L 39 35 z', {
                         left: 100,
                         top: 100,
-                        fill: color + '80',
-                        stroke: color,
-                        strokeWidth: 2,
                         scaleX: 0.8,
                         scaleY: 0.8,
                         ...commonOptions
                     });
-                    shape = star;
+                    break;
+                case 'polygon':
+                    // Hexagone
+                    const points = [];
+                    const sides = 6;
+                    const radius = 50;
+                    for (let i = 0; i < sides; i++) {
+                        points.push({
+                            x: radius * Math.cos(i * 2 * Math.PI / sides),
+                            y: radius * Math.sin(i * 2 * Math.PI / sides)
+                        });
+                    }
+                    shape = new fabric.Polygon(points, {
+                        left: 100,
+                        top: 100,
+                        ...commonOptions
+                    });
+                    break;
+                case 'heart':
+                    // Cœur en SVG path
+                    shape = new fabric.Path('M 50 20 C 20 -10, -10 20, 20 50 L 50 80 L 80 50 C 110 20, 80 -10, 50 20 z', {
+                        left: 100,
+                        top: 100,
+                        scaleX: 0.7,
+                        scaleY: 0.7,
+                        ...commonOptions
+                    });
                     break;
             }
             
@@ -1218,13 +1514,6 @@ require_once 'header.php';
                 // Centrer l'objet si hors écran
                 fabricCanvas.centerObject(shape);
                 fabricCanvas.renderAll();
-                
-                // Message détaillé
-                alert('✅ Forme ajoutée !\n\n' +
-                      '💡 Maintenant :\n' +
-                      '• CLIQUEZ pour sélectionner\n' +
-                      '• GLISSEZ pour déplacer\n' +
-                      '• Utilisez les COINS pour redimensionner');
             }
         }
         
@@ -1246,8 +1535,84 @@ require_once 'header.php';
                     fabricCanvas.remove(obj);
                 });
                 fabricCanvas.renderAll();
-                alert('✅ Tous les éléments ont été supprimés');
             }
+        }
+        
+        // Nouvelles fonctions de modification
+        function duplicateSelected() {
+            const activeObject = fabricCanvas.getActiveObject();
+            if (!activeObject) {
+                alert('⚠️ Aucun élément sélectionné');
+                return;
+            }
+            
+            activeObject.clone(function(cloned) {
+                cloned.set({
+                    left: cloned.left + 20,
+                    top: cloned.top + 20
+                });
+                fabricCanvas.add(cloned);
+                fabricCanvas.setActiveObject(cloned);
+                fabricCanvas.renderAll();
+            });
+        }
+        
+        function updateSelectedObjectOpacity() {
+            const activeObject = fabricCanvas.getActiveObject();
+            if (!activeObject) return;
+            
+            const opacity = parseInt(document.getElementById('objectOpacity').value) / 100;
+            activeObject.set('opacity', opacity);
+            fabricCanvas.renderAll();
+        }
+        
+        function updateSelectedObjectRotation() {
+            const activeObject = fabricCanvas.getActiveObject();
+            if (!activeObject) return;
+            
+            const rotation = parseInt(document.getElementById('objectRotation').value);
+            activeObject.set('angle', rotation);
+            fabricCanvas.renderAll();
+        }
+        
+        function bringToFront() {
+            const activeObject = fabricCanvas.getActiveObject();
+            if (!activeObject) {
+                alert('⚠️ Aucun élément sélectionné');
+                return;
+            }
+            fabricCanvas.bringToFront(activeObject);
+            fabricCanvas.renderAll();
+        }
+        
+        function sendToBack() {
+            const activeObject = fabricCanvas.getActiveObject();
+            if (!activeObject) {
+                alert('⚠️ Aucun élément sélectionné');
+                return;
+            }
+            fabricCanvas.sendToBack(activeObject);
+            fabricCanvas.renderAll();
+        }
+        
+        function flipObjectH() {
+            const activeObject = fabricCanvas.getActiveObject();
+            if (!activeObject) {
+                alert('⚠️ Aucun élément sélectionné');
+                return;
+            }
+            activeObject.set('flipX', !activeObject.flipX);
+            fabricCanvas.renderAll();
+        }
+        
+        function flipObjectV() {
+            const activeObject = fabricCanvas.getActiveObject();
+            if (!activeObject) {
+                alert('⚠️ Aucun élément sélectionné');
+                return;
+            }
+            activeObject.set('flipY', !activeObject.flipY);
+            fabricCanvas.renderAll();
         }
         
         // CHANGEMENT DE MODE
