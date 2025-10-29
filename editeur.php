@@ -662,7 +662,7 @@ require_once 'header.php';
                         <input type="text" id="textInput" placeholder="Votre texte..." style="margin-bottom: 8px;">
                         
                         <!-- Police -->
-                        <select id="textFont" style="width: 100%; padding: 8px; margin-bottom: 8px; border: 1px solid #ddd; border-radius: 4px;">
+                        <select id="textFont" onchange="updateSelectedTextFont()" style="width: 100%; padding: 8px; margin-bottom: 8px; border: 1px solid #ddd; border-radius: 4px;">
                             <option value="Arial">Arial</option>
                             <option value="Helvetica">Helvetica</option>
                             <option value="Times New Roman">Times New Roman</option>
@@ -680,9 +680,9 @@ require_once 'header.php';
                         
                         <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-bottom: 8px;">
                             <!-- Taille -->
-                            <input type="number" id="textSize" value="40" min="10" max="300" placeholder="Taille" style="padding: 8px;">
+                            <input type="number" id="textSize" value="40" min="10" max="300" placeholder="Taille" onchange="updateSelectedTextSize()" style="padding: 8px;">
                             <!-- Couleur texte -->
-                            <input type="color" id="textColor" value="#ffffff" title="Couleur du texte">
+                            <input type="color" id="textColor" value="#ffffff" onchange="updateSelectedTextColor()" title="Couleur du texte">
                         </div>
                         
                         <!-- Style de texte -->
@@ -701,29 +701,16 @@ require_once 'header.php';
                             </button>
                         </div>
                         
-                        <!-- Alignement -->
-                        <div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 5px; margin-bottom: 8px;">
-                            <button class="style-btn" onclick="setTextAlign('left')" title="Gauche">
-                                ◀ G
-                            </button>
-                            <button class="style-btn" onclick="setTextAlign('center')" title="Centre">
-                                ◆ C
-                            </button>
-                            <button class="style-btn" onclick="setTextAlign('right')" title="Droite">
-                                ▶ D
-                            </button>
-                        </div>
-                        
                         <!-- Contour -->
                         <div style="display: grid; grid-template-columns: 1fr 80px; gap: 8px; margin-bottom: 8px;">
-                            <input type="color" id="textStrokeColor" value="#000000" title="Couleur du contour">
-                            <input type="number" id="textStrokeWidth" value="1" min="0" max="10" placeholder="Épaisseur" style="padding: 8px;">
+                            <input type="color" id="textStrokeColor" value="#000000" onchange="updateSelectedTextStroke()" title="Couleur du contour">
+                            <input type="number" id="textStrokeWidth" value="1" min="0" max="10" onchange="updateSelectedTextStroke()" placeholder="Épaisseur" style="padding: 8px;">
                         </div>
                         
                         <!-- Ombre -->
                         <div style="margin-bottom: 8px;">
                             <label style="display: flex; align-items: center; font-size: 13px;">
-                                <input type="checkbox" id="textShadow" style="margin-right: 5px;">
+                                <input type="checkbox" id="textShadow" onchange="updateSelectedTextShadow()" style="margin-right: 5px;">
                                 Ajouter une ombre
                             </label>
                         </div>
@@ -1165,6 +1152,15 @@ require_once 'header.php';
 						if (obj) {
 							document.getElementById('objectOpacity').value = (obj.opacity || 1) * 100;
 							document.getElementById('objectRotation').value = obj.angle || 0;
+							
+							// Si c'est un texte, charger ses propriétés
+							if (obj.type === 'i-text') {
+								document.getElementById('textFont').value = obj.fontFamily || 'Arial';
+								document.getElementById('textSize').value = obj.fontSize || 40;
+								document.getElementById('textColor').value = obj.fill || '#ffffff';
+								document.getElementById('textStrokeColor').value = obj.stroke || '#000000';
+								document.getElementById('textStrokeWidth').value = obj.strokeWidth || 0;
+							}
 						}
 					}
 				});
@@ -1180,6 +1176,15 @@ require_once 'header.php';
 						if (obj) {
 							document.getElementById('objectOpacity').value = (obj.opacity || 1) * 100;
 							document.getElementById('objectRotation').value = obj.angle || 0;
+							
+							// Si c'est un texte, charger ses propriétés
+							if (obj.type === 'i-text') {
+								document.getElementById('textFont').value = obj.fontFamily || 'Arial';
+								document.getElementById('textSize').value = obj.fontSize || 40;
+								document.getElementById('textColor').value = obj.fill || '#ffffff';
+								document.getElementById('textStrokeColor').value = obj.stroke || '#000000';
+								document.getElementById('textStrokeWidth').value = obj.strokeWidth || 0;
+							}
 						}
 					}
 				});
@@ -1324,10 +1329,10 @@ require_once 'header.php';
             // Ajouter l'ombre si activée
             if (textShadow.checked) {
                 textOptions.shadow = {
-                    color: 'rgba(0,0,0,0.5)',
-                    blur: 10,
-                    offsetX: 5,
-                    offsetY: 5
+                    color: 'rgba(0,0,0,0.9)',  // Très opaque pour être visible
+                    blur: 20,                   // Flou important
+                    offsetX: 10,                // Décalage visible
+                    offsetY: 10                 // Décalage visible
                 };
             }
             
@@ -1377,7 +1382,133 @@ require_once 'header.php';
                 return;
             }
             
-            activeObject.set('textAlign', align);
+            // IMPORTANT : L'alignement ne fonctionne bien que pour le texte multi-ligne
+            // Pour voir l'effet sur du texte court, on crée un Textbox
+            if (activeObject.text && !activeObject.text.includes('\n')) {
+                // Convertir IText en Textbox pour l'alignement
+                const textbox = new fabric.Textbox(activeObject.text, {
+                    left: activeObject.left,
+                    top: activeObject.top,
+                    width: Math.max(activeObject.width * 2, 300),
+                    fontSize: activeObject.fontSize,
+                    fill: activeObject.fill,
+                    stroke: activeObject.stroke,
+                    strokeWidth: activeObject.strokeWidth,
+                    fontFamily: activeObject.fontFamily,
+                    fontWeight: activeObject.fontWeight,
+                    fontStyle: activeObject.fontStyle,
+                    underline: activeObject.underline,
+                    linethrough: activeObject.linethrough,
+                    textAlign: align,
+                    editable: true,
+                    selectable: true,
+                    evented: true,
+                    hasControls: true,
+                    hasBorders: true,
+                    borderColor: '#667eea',
+                    cornerColor: '#667eea',
+                    cornerSize: 12,
+                    hoverCursor: 'move',
+                    moveCursor: 'move'
+                });
+                
+                // Copier l'ombre si elle existe
+                if (activeObject.shadow) {
+                    textbox.set('shadow', activeObject.shadow);
+                }
+                
+                fabricCanvas.remove(activeObject);
+                fabricCanvas.add(textbox);
+                fabricCanvas.setActiveObject(textbox);
+                fabricCanvas.renderAll();
+                
+                alert('💡 Texte converti en zone de texte pour l\'alignement.\nVous pouvez maintenant voir l\'effet de l\'alignement !');
+            } else {
+                // C'est déjà un texte multi-ligne
+                activeObject.set('textAlign', align);
+                activeObject.setCoords();
+                fabricCanvas.renderAll();
+            }
+        }
+        
+        // Nouvelles fonctions pour modifier le texte sélectionné
+        function updateSelectedTextFont() {
+            const activeObject = fabricCanvas.getActiveObject();
+            if (!activeObject || activeObject.type !== 'i-text') return;
+            
+            const font = document.getElementById('textFont').value;
+            activeObject.set('fontFamily', font);
+            fabricCanvas.renderAll();
+        }
+        
+        function updateSelectedTextSize() {
+            const activeObject = fabricCanvas.getActiveObject();
+            if (!activeObject || activeObject.type !== 'i-text') return;
+            
+            const size = parseInt(document.getElementById('textSize').value);
+            activeObject.set('fontSize', size);
+            fabricCanvas.renderAll();
+        }
+        
+        function updateSelectedTextColor() {
+            const activeObject = fabricCanvas.getActiveObject();
+            if (!activeObject || activeObject.type !== 'i-text') return;
+            
+            const color = document.getElementById('textColor').value;
+            activeObject.set('fill', color);
+            fabricCanvas.renderAll();
+        }
+        
+        function updateSelectedTextStroke() {
+            const activeObject = fabricCanvas.getActiveObject();
+            if (!activeObject || activeObject.type !== 'i-text') return;
+            
+            const strokeColor = document.getElementById('textStrokeColor').value;
+            const strokeWidth = parseInt(document.getElementById('textStrokeWidth').value);
+            activeObject.set({
+                stroke: strokeColor,
+                strokeWidth: strokeWidth
+            });
+            fabricCanvas.renderAll();
+        }
+        
+        function updateSelectedTextShadow() {
+            const activeObject = fabricCanvas.getActiveObject();
+            if (!activeObject || activeObject.type !== 'i-text') return;
+            
+            const hasShadow = document.getElementById('textShadow').checked;
+            
+            if (hasShadow) {
+                activeObject.set('shadow', {
+                    color: 'rgba(0,0,0,0.9)',
+                    blur: 20,
+                    offsetX: 10,
+                    offsetY: 10
+                });
+            } else {
+                activeObject.set('shadow', null);
+            }
+            
+            fabricCanvas.renderAll();
+        }
+        
+        function updateSelectedTextShadow() {
+            const activeObject = fabricCanvas.getActiveObject();
+            if (!activeObject || activeObject.type !== 'i-text') return;
+            
+            const hasShadow = document.getElementById('textShadow').checked;
+            
+            if (hasShadow) {
+                activeObject.set('shadow', {
+                    color: 'rgba(0,0,0,0.8)',
+                    blur: 15,
+                    offsetX: 8,
+                    offsetY: 8
+                });
+            } else {
+                activeObject.set('shadow', null);
+            }
+            
             fabricCanvas.renderAll();
         }
         
