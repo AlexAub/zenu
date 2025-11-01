@@ -1,6 +1,8 @@
 /**
- * ÉDITEUR D'IMAGES - MODE PRO
+ * ÉDITEUR D'IMAGES - MODE PRO (VERSION CORRIGÉE)
  * Gestion des textes, formes et annotations avec Fabric.js
+ * 
+ * ⚠️ CORRECTION : Ajout de setCoords() pour résoudre le décalage des points bleus
  */
 
 /**
@@ -40,6 +42,15 @@ function loadProMode(img) {
         // Ajouter les event listeners
         setupFabricEventListeners();
         
+        // ⭐ AJOUT : Listener pour recalculer lors du resize de la fenêtre
+        window.addEventListener('resize', function() {
+            if (fabricCanvas) {
+                fabricCanvas.calcOffset();
+                fabricCanvas.getObjects().forEach(obj => obj.setCoords());
+                fabricCanvas.renderAll();
+            }
+        });
+        
         console.log('✅ Fabric.js initialisé pour la première fois');
     } else {
         console.log('🔵 Réinitialisation de Fabric.js');
@@ -65,147 +76,39 @@ function loadProMode(img) {
             );
         }
         
-        // Redimensionner le canvas pour correspondre à l'image
-        const canvasWidth = fabricImg.width * scale;
-        const canvasHeight = fabricImg.height * scale;
+        // Redimensionner le canvas aux dimensions de l'image
+        const canvasWidth = Math.round(fabricImg.width * scale);
+        const canvasHeight = Math.round(fabricImg.height * scale);
         
-        fabricCanvas.setWidth(canvasWidth);
-        fabricCanvas.setHeight(canvasHeight);
+        fabricCanvas.setDimensions({
+            width: canvasWidth,
+            height: canvasHeight
+        });
         
-        console.log('🔵 Canvas redimensionné à:', canvasWidth, 'x', canvasHeight);
+        // Mettre à l'échelle l'image
+        fabricImg.scale(scale);
         
-        fabricImg.set({
+        // Définir comme image de fond
+        fabricCanvas.setBackgroundImage(fabricImg, fabricCanvas.renderAll.bind(fabricCanvas), {
             scaleX: scale,
-            scaleY: scale,
-            selectable: false,
-            evented: false,
-            hoverCursor: 'default'
+            scaleY: scale
         });
         
-        // Utiliser setBackgroundImage au lieu de add() pour que l'image ne bloque pas
-        fabricCanvas.setBackgroundImage(fabricImg, function() {
-            console.log('🔵 Image de fond définie');
-            
-            // CRITIQUE : Réactiver complètement toutes les interactions
-            fabricCanvas.selection = true;
-            fabricCanvas.interactive = true;
-            fabricCanvas.skipTargetFind = false;
-            fabricCanvas.defaultCursor = 'default';
-            
-            // IMPORTANT : S'assurer que le canvas reçoit les événements de souris
-            const canvasElement = fabricCanvas.getElement();
-            const upperCanvas = fabricCanvas.upperCanvasEl;
-            const lowerCanvas = fabricCanvas.lowerCanvasEl;
-            const container = canvasElement?.parentElement;
-            
-            console.log('🔵 Configuration des z-index et dimensions...');
-            
-            if (container) {
-                container.style.position = 'relative';
-                container.style.zIndex = '999';
-                container.style.pointerEvents = 'auto';
-                console.log('✅ Container configuré');
-            }
-            
-            if (canvasElement) {
-                canvasElement.style.pointerEvents = 'auto';
-                canvasElement.style.zIndex = '999';
-                console.log('✅ Canvas element configuré');
-            }
-            
-            // CRITIQUE : Forcer les dimensions du upper canvas
-            if (upperCanvas) {
-                upperCanvas.style.pointerEvents = 'auto';
-                upperCanvas.style.position = 'absolute';
-                upperCanvas.style.zIndex = '1000';
-                upperCanvas.style.touchAction = 'none';
-                upperCanvas.style.left = '0';
-                upperCanvas.style.top = '0';
-                
-                // SOLUTION : Synchroniser les dimensions canvas et CSS
-                // Fabric.js peut appliquer un ratio devicePixel, on force la même taille partout
-                const computedStyle = window.getComputedStyle(lowerCanvas);
-                const cssWidth = parseInt(computedStyle.width);
-                const cssHeight = parseInt(computedStyle.height);
-                
-                console.log('🔵 Lower canvas CSS:', cssWidth, 'x', cssHeight);
-                console.log('🔵 Upper canvas avant:', upperCanvas.width, 'x', upperCanvas.height);
-                
-                // Forcer les mêmes dimensions CSS que le lower canvas
-                upperCanvas.style.width = cssWidth + 'px';
-                upperCanvas.style.height = cssHeight + 'px';
-                
-                // ET forcer les mêmes dimensions physiques
-                upperCanvas.width = cssWidth;
-                upperCanvas.height = cssHeight;
-                
-                console.log('✅ Upper canvas configuré - Z-INDEX: 1000');
-                console.log('✅ Upper canvas dimensions:', upperCanvas.width, 'x', upperCanvas.height);
-                console.log('✅ Upper canvas CSS:', upperCanvas.style.width, 'x', upperCanvas.style.height);
-            }
-            
-            // S'assurer que le lower canvas a aussi les bonnes dimensions
-            if (lowerCanvas) {
-                lowerCanvas.width = canvasWidth;
-                lowerCanvas.height = canvasHeight;
-                console.log('✅ Lower canvas dimensions:', canvasWidth, 'x', canvasHeight);
-            }
-            
-            // Forcer le rendu
-            fabricCanvas.renderAll();
-            
-            // IMPORTANT : Recalculer les offsets après avoir modifié les dimensions
+        // ⭐ AJOUT : Recalculer les offsets après chargement
+        setTimeout(() => {
             fabricCanvas.calcOffset();
-            
-            console.log('✅ Canvas Pro chargé - Interactions activées');
-            console.log('Canvas dimensions:', fabricCanvas.width, 'x', fabricCanvas.height);
-            console.log('Selection:', fabricCanvas.selection);
-            console.log('Interactive:', fabricCanvas.interactive);
-            
-            // Test de vérification avec un délai
-            setTimeout(() => {
-                const rect = upperCanvas?.getBoundingClientRect();
-                const computedWidth = window.getComputedStyle(upperCanvas).width;
-                const computedHeight = window.getComputedStyle(upperCanvas).height;
-                
-                console.log('📊 ===== DIAGNOSTIC FINAL =====');
-                console.log('📊 Upper canvas rect:', rect);
-                console.log('📊 Upper canvas.width:', upperCanvas?.width, 'canvas.height:', upperCanvas?.height);
-                console.log('📊 Upper canvas style:', upperCanvas?.style.width, 'x', upperCanvas?.style.height);
-                console.log('📊 Upper canvas computed:', computedWidth, 'x', computedHeight);
-                console.log('📊 Upper canvas z-index:', window.getComputedStyle(upperCanvas).zIndex);
-                console.log('📊 getBoundingClientRect:', 'width=' + rect.width, 'height=' + rect.height);
-                
-                // Vérification finale
-                if (rect.width === 0 || rect.height === 0) {
-                    console.error('❌ PROBLÈME CRITIQUE : Upper canvas a une taille de 0 !');
-                    console.log('🔧 Tentative de correction d\'urgence...');
-                    
-                    // Forcer avec !important via setAttribute
-                    upperCanvas.setAttribute('style', 
-                        'pointer-events: auto !important; ' +
-                        'position: absolute !important; ' +
-                        'z-index: 1000 !important; ' +
-                        'left: 0 !important; ' +
-                        'top: 0 !important; ' +
-                        'width: ' + canvasWidth + 'px !important; ' +
-                        'height: ' + canvasHeight + 'px !important;'
-                    );
-                    fabricCanvas.calcOffset();
-                    
-                    console.log('🔧 Correction appliquée, vérifiez à nouveau');
-                } else {
-                    console.log('✅ Upper canvas a les bonnes dimensions !');
-                    console.log('✅ Les clics devraient maintenant fonctionner !');
-                }
-                console.log('📊 ===== FIN DIAGNOSTIC =====');
-            }, 200);
-        });
+            fabricCanvas.getObjects().forEach(obj => obj.setCoords());
+            fabricCanvas.renderAll();
+            console.log('✅ Coordonnées recalculées après chargement');
+        }, 100);
+        
+        console.log('✅ Image de fond définie');
     }, { crossOrigin: 'anonymous' });
 }
 
 /**
  * Configurer les event listeners de Fabric.js
+ * ⭐ VERSION CORRIGÉE avec setCoords()
  */
 function setupFabricEventListeners() {
     fabricCanvas.on('mouse:down', function(e) {
@@ -215,13 +118,46 @@ function setupFabricEventListeners() {
         }
     });
     
+    // ⭐ CORRECTION : Ajouter setCoords() pendant le déplacement
+    fabricCanvas.on('object:moving', function(e) {
+        console.log('Objet en mouvement:', e.target.type);
+        e.target.setCoords(); // IMPORTANT : Recalculer les coordonnées pendant le déplacement
+    });
+    
+    // ⭐ CORRECTION : Ajouter setCoords() pendant le redimensionnement
+    fabricCanvas.on('object:scaling', function(e) {
+        console.log('Objet en redimensionnement:', e.target.type);
+        e.target.setCoords(); // IMPORTANT : Recalculer les coordonnées pendant le scaling
+    });
+    
+    // ⭐ AJOUT : Event pour la rotation
+    fabricCanvas.on('object:rotating', function(e) {
+        console.log('Objet en rotation:', e.target.type);
+        e.target.setCoords(); // IMPORTANT : Recalculer les coordonnées pendant la rotation
+    });
+    
+    // ⭐ AJOUT : Event après modification terminée
+    fabricCanvas.on('object:modified', function(e) {
+        console.log('Objet modifié:', e.target.type);
+        e.target.setCoords(); // IMPORTANT : Recalculer les coordonnées après modification
+        fabricCanvas.renderAll();
+    });
+    
     fabricCanvas.on('selection:created', function(e) {
         console.log('✅ Sélection créée:', e.selected);
+        // ⭐ AJOUT : Recalculer les coords lors de la sélection
+        if (e.selected && e.selected.length > 0) {
+            e.selected.forEach(obj => obj.setCoords());
+        }
         updateObjectControls();
     });
     
     fabricCanvas.on('selection:updated', function(e) {
         console.log('✅ Sélection mise à jour:', e.selected);
+        // ⭐ AJOUT : Recalculer les coords lors de la mise à jour de sélection
+        if (e.selected && e.selected.length > 0) {
+            e.selected.forEach(obj => obj.setCoords());
+        }
         updateObjectControls();
     });
     
@@ -232,14 +168,6 @@ function setupFabricEventListeners() {
         if (indicator) indicator.style.display = 'none';
         if (modifyControls) modifyControls.style.display = 'none';
     });
-    
-    // Test de diagnostic au niveau du canvas DOM
-    const canvasEl = fabricCanvas.getElement();
-    if (canvasEl) {
-        canvasEl.addEventListener('click', function(e) {
-            console.log('🖱️ Click natif sur canvas element', e);
-        });
-    }
 }
 
 /**
@@ -267,22 +195,23 @@ function updateObjectControls() {
     }
 }
 
-// ===== FONCTIONS TEXTE =====
+// ===== FONCTIONS DE GESTION DU TEXTE =====
 
 /**
- * Ajouter du texte sur le canvas
+ * Ajouter du texte au canvas
+ * ⭐ VERSION CORRIGÉE avec setCoords()
  */
 function addText() {
     const textInput = document.getElementById('textInput');
-    const textColor = document.getElementById('textColor');
-    const textSize = document.getElementById('textSize');
     const textFont = document.getElementById('textFont');
+    const textSize = document.getElementById('textSize');
+    const textColor = document.getElementById('textColor');
     const textStrokeColor = document.getElementById('textStrokeColor');
     const textStrokeWidth = document.getElementById('textStrokeWidth');
     const textShadow = document.getElementById('textShadow');
     
-    if (!textInput.value) {
-        alert('⚠️ Veuillez entrer un texte');
+    if (!textInput.value.trim()) {
+        alert('⚠️ Veuillez entrer du texte');
         return;
     }
     
@@ -326,14 +255,13 @@ function addText() {
     fabricCanvas.setActiveObject(text);
     fabricCanvas.centerObject(text);
     
-    // IMPORTANT : Mettre à jour les coordonnées de l'objet
+    // ⭐ CORRECTION : Recalculer immédiatement les coordonnées
     text.setCoords();
     
-    // Forcer le rendu complet
     fabricCanvas.renderAll();
     fabricCanvas.requestRenderAll();
     
-    // Recalculer les offsets du canvas après ajout
+    // ⭐ CORRECTION : Recalculer aussi après un court délai pour être sûr
     setTimeout(() => {
         fabricCanvas.calcOffset();
         text.setCoords();
@@ -346,6 +274,7 @@ function addText() {
 
 /**
  * Basculer le style de texte (gras, italique, etc.)
+ * ⭐ VERSION CORRIGÉE avec setCoords()
  */
 function toggleTextStyle(style) {
     const activeObject = fabricCanvas.getActiveObject();
@@ -369,6 +298,8 @@ function toggleTextStyle(style) {
             break;
     }
     
+    // ⭐ CORRECTION : Recalculer après changement de style
+    activeObject.setCoords();
     fabricCanvas.renderAll();
 }
 
@@ -382,13 +313,58 @@ function setTextAlign(align) {
         return;
     }
     
-    activeObject.set('textAlign', align);
-    activeObject.setCoords();
-    fabricCanvas.renderAll();
+    // Convertir IText en Textbox pour l'alignement si nécessaire
+    if (activeObject.type === 'i-text' && !activeObject.text.includes('\n')) {
+        const textbox = new fabric.Textbox(activeObject.text, {
+            left: activeObject.left,
+            top: activeObject.top,
+            width: Math.max(activeObject.width * 2, 300),
+            fontSize: activeObject.fontSize,
+            fill: activeObject.fill,
+            stroke: activeObject.stroke,
+            strokeWidth: activeObject.strokeWidth,
+            fontFamily: activeObject.fontFamily,
+            fontWeight: activeObject.fontWeight,
+            fontStyle: activeObject.fontStyle,
+            underline: activeObject.underline,
+            linethrough: activeObject.linethrough,
+            textAlign: align,
+            editable: true,
+            selectable: true,
+            evented: true,
+            hasControls: true,
+            hasBorders: true,
+            borderColor: '#667eea',
+            cornerColor: '#667eea',
+            cornerSize: 12,
+            hoverCursor: 'move',
+            moveCursor: 'move'
+        });
+        
+        if (activeObject.shadow) {
+            textbox.set('shadow', activeObject.shadow);
+        }
+        
+        fabricCanvas.remove(activeObject);
+        fabricCanvas.add(textbox);
+        fabricCanvas.setActiveObject(textbox);
+        
+        // ⭐ CORRECTION : Recalculer après conversion
+        textbox.setCoords();
+        fabricCanvas.renderAll();
+        
+        alert('💡 Texte converti en zone de texte pour l\'alignement.');
+    } else {
+        activeObject.set('textAlign', align);
+        // ⭐ CORRECTION : Recalculer après changement d'alignement
+        activeObject.setCoords();
+        fabricCanvas.renderAll();
+    }
 }
 
 /**
  * Mettre à jour la police du texte sélectionné
+ * ⭐ VERSION CORRIGÉE avec setCoords()
  */
 function updateSelectedTextFont() {
     const activeObject = fabricCanvas.getActiveObject();
@@ -396,11 +372,15 @@ function updateSelectedTextFont() {
     
     const font = document.getElementById('textFont').value;
     activeObject.set('fontFamily', font);
+    
+    // ⭐ CORRECTION : Recalculer après changement de police
+    activeObject.setCoords();
     fabricCanvas.renderAll();
 }
 
 /**
  * Mettre à jour la taille du texte sélectionné
+ * ⭐ VERSION CORRIGÉE avec setCoords()
  */
 function updateSelectedTextSize() {
     const activeObject = fabricCanvas.getActiveObject();
@@ -408,6 +388,9 @@ function updateSelectedTextSize() {
     
     const size = parseInt(document.getElementById('textSize').value);
     activeObject.set('fontSize', size);
+    
+    // ⭐ CORRECTION : Recalculer après changement de taille (TRÈS IMPORTANT)
+    activeObject.setCoords();
     fabricCanvas.renderAll();
 }
 
@@ -420,11 +403,14 @@ function updateSelectedTextColor() {
     
     const color = document.getElementById('textColor').value;
     activeObject.set('fill', color);
+    
+    // Pas besoin de setCoords() pour la couleur (ne change pas les dimensions)
     fabricCanvas.renderAll();
 }
 
 /**
  * Mettre à jour le contour du texte sélectionné
+ * ⭐ VERSION CORRIGÉE avec setCoords()
  */
 function updateSelectedTextStroke() {
     const activeObject = fabricCanvas.getActiveObject();
@@ -432,23 +418,27 @@ function updateSelectedTextStroke() {
     
     const strokeColor = document.getElementById('textStrokeColor').value;
     const strokeWidth = parseInt(document.getElementById('textStrokeWidth').value);
+    
     activeObject.set({
         stroke: strokeColor,
         strokeWidth: strokeWidth
     });
+    
+    // ⭐ CORRECTION : Le stroke peut changer les dimensions visuelles
+    activeObject.setCoords();
     fabricCanvas.renderAll();
 }
 
 /**
- * Mettre à jour l'ombre du texte sélectionné
+ * Activer/désactiver l'ombre du texte
  */
 function updateSelectedTextShadow() {
     const activeObject = fabricCanvas.getActiveObject();
     if (!activeObject || (activeObject.type !== 'i-text' && activeObject.type !== 'textbox')) return;
     
-    const hasShadow = document.getElementById('textShadow').checked;
+    const shadowEnabled = document.getElementById('textShadow').checked;
     
-    if (hasShadow) {
+    if (shadowEnabled) {
         activeObject.set('shadow', {
             color: 'rgba(0,0,0,0.9)',
             blur: 20,
@@ -462,30 +452,38 @@ function updateSelectedTextShadow() {
     fabricCanvas.renderAll();
 }
 
-// ===== FONCTIONS FORMES =====
+// ===== FONCTIONS DE GESTION DES FORMES =====
 
 /**
- * Ajouter une forme sur le canvas
+ * Ajouter une forme au canvas
+ * ⭐ VERSION CORRIGÉE avec setCoords()
  */
 function addShape(type) {
-    const fillColor = document.getElementById('shapeFillColor').value;
-    const strokeColor = document.getElementById('shapeStrokeColor').value;
-    const opacity = parseInt(document.getElementById('shapeOpacity').value) / 100;
-    const strokeWidth = parseInt(document.getElementById('shapeStrokeWidth').value);
-    const strokeDash = document.getElementById('shapeStrokeDash').value;
-    const roundedCorners = parseInt(document.getElementById('shapeRoundedCorners').value);
+    const shapeFillColor = document.getElementById('shapeFillColor');
+    const shapeStrokeColor = document.getElementById('shapeStrokeColor');
+    const shapeStrokeWidth = document.getElementById('shapeStrokeWidth');
+    const shapeOpacity = document.getElementById('shapeOpacity');
+    const shapeStrokeDash = document.getElementById('shapeStrokeDash');
+    const shapeRoundedCorners = document.getElementById('shapeRoundedCorners');
     
-    let shape;
+    const fillColor = shapeFillColor.value;
+    const strokeColor = shapeStrokeColor.value;
+    const strokeWidth = parseInt(shapeStrokeWidth.value);
+    const opacity = parseInt(shapeOpacity.value) / 100;
     
-    // Convertir le style de trait en array pour Fabric.js
+    // Définir le style de trait
     let strokeDashArray = null;
-    if (strokeDash === 'dashed') {
-        strokeDashArray = [10, 5];
-    } else if (strokeDash === 'dotted') {
-        strokeDashArray = [2, 3];
+    switch(shapeStrokeDash.value) {
+        case 'dashed':
+            strokeDashArray = [10, 5];
+            break;
+        case 'dotted':
+            strokeDashArray = [2, 5];
+            break;
     }
     
-    // Options communes
+    const roundedCorners = parseInt(shapeRoundedCorners.value);
+    
     const commonOptions = {
         fill: fillColor,
         stroke: strokeColor,
@@ -506,6 +504,8 @@ function addShape(type) {
         hoverCursor: 'move',
         moveCursor: 'move'
     };
+    
+    let shape = null;
     
     switch(type) {
         case 'rect':
@@ -594,14 +594,13 @@ function addShape(type) {
         fabricCanvas.setActiveObject(shape);
         fabricCanvas.centerObject(shape);
         
-        // IMPORTANT : Mettre à jour les coordonnées de l'objet
+        // ⭐ CORRECTION : Recalculer immédiatement les coordonnées
         shape.setCoords();
         
-        // Forcer le rendu complet
         fabricCanvas.renderAll();
         fabricCanvas.requestRenderAll();
         
-        // Recalculer les offsets après ajout
+        // ⭐ CORRECTION : Recalculer aussi après un court délai
         setTimeout(() => {
             fabricCanvas.calcOffset();
             shape.setCoords();
@@ -634,41 +633,13 @@ function clearCanvas() {
     if (confirm('⚠️ Supprimer tous les éléments (l\'image de fond sera conservée) ?')) {
         const objects = fabricCanvas.getObjects();
         objects.forEach(obj => {
-            fabricCanvas.remove(obj);
+            if (obj !== fabricCanvas.backgroundImage) {
+                fabricCanvas.remove(obj);
+            }
         });
         fabricCanvas.renderAll();
+        alert('✅ Canvas nettoyé');
     }
-}
-
-/**
- * Dupliquer l'objet sélectionné
- */
-function duplicateSelected() {
-    const activeObject = fabricCanvas.getActiveObject();
-    if (!activeObject) {
-        alert('⚠️ Aucun élément sélectionné');
-        return;
-    }
-    
-    activeObject.clone(function(cloned) {
-        cloned.set({
-            left: cloned.left + 20,
-            top: cloned.top + 20
-        });
-        fabricCanvas.add(cloned);
-        fabricCanvas.setActiveObject(cloned);
-        
-        // Mettre à jour les coordonnées
-        cloned.setCoords();
-        fabricCanvas.renderAll();
-        fabricCanvas.requestRenderAll();
-        
-        setTimeout(() => {
-            fabricCanvas.calcOffset();
-            cloned.setCoords();
-            fabricCanvas.requestRenderAll();
-        }, 50);
-    });
 }
 
 /**
@@ -690,8 +661,11 @@ function updateSelectedObjectRotation() {
     const activeObject = fabricCanvas.getActiveObject();
     if (!activeObject) return;
     
-    const rotation = parseInt(document.getElementById('objectRotation').value);
-    activeObject.set('angle', rotation);
+    const angle = parseInt(document.getElementById('objectRotation').value);
+    activeObject.set('angle', angle);
+    
+    // ⭐ CORRECTION : Recalculer après rotation
+    activeObject.setCoords();
     fabricCanvas.renderAll();
 }
 
@@ -700,12 +674,12 @@ function updateSelectedObjectRotation() {
  */
 function bringToFront() {
     const activeObject = fabricCanvas.getActiveObject();
-    if (!activeObject) {
+    if (activeObject) {
+        fabricCanvas.bringToFront(activeObject);
+        fabricCanvas.renderAll();
+    } else {
         alert('⚠️ Aucun élément sélectionné');
-        return;
     }
-    fabricCanvas.bringToFront(activeObject);
-    fabricCanvas.renderAll();
 }
 
 /**
@@ -713,36 +687,34 @@ function bringToFront() {
  */
 function sendToBack() {
     const activeObject = fabricCanvas.getActiveObject();
-    if (!activeObject) {
+    if (activeObject) {
+        fabricCanvas.sendToBack(activeObject);
+        fabricCanvas.renderAll();
+    } else {
         alert('⚠️ Aucun élément sélectionné');
-        return;
     }
-    fabricCanvas.sendToBack(activeObject);
-    fabricCanvas.renderAll();
 }
 
 /**
- * Retourner l'objet horizontalement
+ * Dupliquer l'objet sélectionné
  */
-function flipObjectH() {
+function duplicateSelected() {
     const activeObject = fabricCanvas.getActiveObject();
     if (!activeObject) {
         alert('⚠️ Aucun élément sélectionné');
         return;
     }
-    activeObject.set('flipX', !activeObject.flipX);
-    fabricCanvas.renderAll();
-}
-
-/**
- * Retourner l'objet verticalement
- */
-function flipObjectV() {
-    const activeObject = fabricCanvas.getActiveObject();
-    if (!activeObject) {
-        alert('⚠️ Aucun élément sélectionné');
-        return;
-    }
-    activeObject.set('flipY', !activeObject.flipY);
-    fabricCanvas.renderAll();
+    
+    activeObject.clone(function(cloned) {
+        cloned.set({
+            left: cloned.left + 20,
+            top: cloned.top + 20
+        });
+        fabricCanvas.add(cloned);
+        fabricCanvas.setActiveObject(cloned);
+        
+        // ⭐ CORRECTION : Recalculer après duplication
+        cloned.setCoords();
+        fabricCanvas.renderAll();
+    });
 }
