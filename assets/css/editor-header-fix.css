@@ -1,0 +1,64 @@
+/* === CORRECTIONS HEADER ÉDITEUR === */
+
+/* Font-family identique à upload.php */
+body {
+    margin: 0 !important;
+    padding: 0 !important;
+    background: #f5f7fa;
+    font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif !important;
+}
+
+/* Assurer que le header prend toute la largeur */
+.site-header {
+    margin: 0 !important;
+    width: 100% !important;
+}
+
+/* Container du header - padding identique à upload.php */
+.header-container {
+    max-width: 1400px !important;
+    margin: 0 auto !important;
+    padding: 20px !important;
+}
+
+/* Ajuster la taille du logo */
+.site-logo {
+    font-size: 24px !important;
+    font-weight: 700 !important;
+}
+
+.page-title {
+    font-size: 20px !important;
+    font-weight: 600 !important;
+}
+
+/* Liens de navigation - style exact */
+.nav-link {
+    font-size: 14px !important;
+    font-weight: 500 !important;
+    padding: 8px 16px !important;
+}
+
+/* User info - style exact */
+.user-info {
+    font-size: 14px !important;
+}
+
+/* Conteneur de l'éditeur commence juste après le header */
+.editor-container {
+    max-width: 1600px;
+    margin: 0 auto;
+    padding: 20px;
+}
+
+/* Responsive */
+@media (max-width: 768px) {
+    .header-container {
+        padding: 20px 15px !important;
+    }
+    
+    .nav-link {
+        font-size: 12px !important;
+        padding: 8px 10px !important;
+    }
+}

@@ -73,11 +73,35 @@
             </div>
         </div>
         
-        <div class="control-group">
+		<div class="control-group">
             <label class="control-label">🔄 Rotation libre</label>
-            <input type="range" class="control-slider" id="cropRotate" min="-180" max="180" value="0">
-            <div style="text-align: center; margin-top: 5px;">
-                <span class="control-value" id="rotateValue">0°</span>
+            
+            <!-- Slider de rotation -->
+            <input type="range" class="control-slider" id="cropRotate" min="-180" max="180" value="0" step="1">
+            
+            <!-- Zone avec input numérique et valeur -->
+            <div style="display: flex; gap: 10px; align-items: center; margin-top: 10px;">
+                <!-- Input numérique -->
+                <input 
+                    type="number" 
+                    id="cropRotateInput" 
+                    min="-180" 
+                    max="180" 
+                    value="0" 
+                    step="1"
+                    style="flex: 1; padding: 8px 12px; border: 2px solid #e0e0e0; border-radius: 6px; font-size: 14px; text-align: center; font-weight: 600;"
+                    placeholder="0"
+                >
+                
+                <!-- Affichage de la valeur -->
+                <span class="control-value" id="rotateValue" style="min-width: 45px; text-align: center;">0°</span>
+            </div>
+            
+            <!-- Boutons de rotation rapide -->
+            <div style="display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 8px; margin-top: 10px;">
+                <button class="btn btn-secondary" onclick="rotateBy(-45)" style="padding: 6px; font-size: 12px;">↶ -45°</button>
+                <button class="btn btn-secondary" onclick="rotateBy(0)" style="padding: 6px; font-size: 12px;">⟲ 0°</button>
+                <button class="btn btn-secondary" onclick="rotateBy(45)" style="padding: 6px; font-size: 12px;">↷ +45°</button>
             </div>
         </div>
         
