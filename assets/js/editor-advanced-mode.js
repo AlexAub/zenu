@@ -135,81 +135,75 @@ function loadAdvancedMode(img) {
         }
     });
     
-    // Rotation slider
+    // === ROTATION : Slider + Input numérique + Synchronisation ===
     const rotateSlider = document.getElementById('cropRotate');
+    const rotateInput = document.getElementById('cropRotateInput');
     const rotateValue = document.getElementById('rotateValue');
     
     if (rotateSlider && rotateValue) {
+        // Supprimer les anciens listeners
         const newRotateSlider = rotateSlider.cloneNode(true);
         rotateSlider.parentNode.replaceChild(newRotateSlider, rotateSlider);
         
+        // Listener pour le SLIDER
         newRotateSlider.addEventListener('input', function() {
             if (cropper) {
                 try {
-                    cropper.rotateTo(this.value);
-                    rotateValue.textContent = this.value + '°';
+                    const angle = parseFloat(this.value);
+                    cropper.rotateTo(angle);
+                    rotateValue.textContent = angle + '°';
+                    
+                    // Synchroniser l'input numérique
+                    if (rotateInput) {
+                        rotateInput.value = angle;
+                    }
                 } catch (error) {
-                    console.error('Erreur rotation:', error);
+                    console.error('Erreur rotation slider:', error);
                 }
             }
         });
+        
+        // Listener pour l'INPUT NUMÉRIQUE
+        if (rotateInput) {
+            const newRotateInput = rotateInput.cloneNode(true);
+            rotateInput.parentNode.replaceChild(newRotateInput, rotateInput);
+            
+            newRotateInput.addEventListener('input', function() {
+                if (cropper) {
+                    try {
+                        let angle = parseFloat(this.value) || 0;
+                        
+                        // Limiter entre -180 et 180
+                        if (angle < -180) angle = -180;
+                        if (angle > 180) angle = 180;
+                        this.value = angle;
+                        
+                        cropper.rotateTo(angle);
+                        rotateValue.textContent = angle + '°';
+                        
+                        // Synchroniser le slider
+                        const slider = document.getElementById('cropRotate');
+                        if (slider) {
+                            slider.value = angle;
+                        }
+                    } catch (error) {
+                        console.error('Erreur rotation input:', error);
+                    }
+                }
+            });
+            
+            // Validation sur Enter
+            newRotateInput.addEventListener('keypress', function(e) {
+                if (e.key === 'Enter') {
+                    this.blur();
+                }
+            });
+        }
     }
 }
-/**
- * Amélioration de la rotation - Code à ajouter dans editor-advanced-mode.js
- */
-
-// Dans loadAdvancedMode(), après la gestion du slider, ajouter :
-
-// Gestion de l'input numérique
-const rotateInput = document.getElementById('cropRotateInput');
-
-if (rotateInput) {
-    rotateInput.addEventListener('input', function() {
-        let value = parseInt(this.value) || 0;
-        
-        // Limiter entre -180 et 180
-        if (value < -180) value = -180;
-        if (value > 180) value = 180;
-        this.value = value;
-        
-        // Synchroniser avec le slider et cropper
-        if (rotateSlider) {
-            rotateSlider.value = value;
-        }
-        if (rotateValue) {
-            rotateValue.textContent = value + '°';
-        }
-        if (cropper) {
-            cropper.rotateTo(value);
-        }
-    });
-    
-    // Validation sur Enter
-    rotateInput.addEventListener('keypress', function(e) {
-        if (e.key === 'Enter') {
-            this.blur();
-        }
-    });
-}
-
-// Synchroniser l'input avec le slider
-if (rotateSlider) {
-    rotateSlider.addEventListener('input', function() {
-        if (rotateInput) {
-            rotateInput.value = this.value;
-        }
-        if (rotateValue) {
-            rotateValue.textContent = this.value + '°';
-        }
-        if (cropper) {
-            cropper.rotateTo(this.value);
-        }
-    });
-}
 
 /**
- * Fonction pour rotation rapide (boutons)
+ * Rotation rapide (pour les boutons -45°, 0°, +45°)
  */
 function rotateBy(angle) {
     if (!cropper) return;
@@ -218,28 +212,32 @@ function rotateBy(angle) {
     const rotateInput = document.getElementById('cropRotateInput');
     const rotateValue = document.getElementById('rotateValue');
     
-    // Si angle = 0, reset à 0
-    if (angle === 0) {
-        if (rotateSlider) rotateSlider.value = 0;
-        if (rotateInput) rotateInput.value = 0;
-        if (rotateValue) rotateValue.textContent = '0°';
-        cropper.rotateTo(0);
-        return;
+    try {
+        if (angle === 0) {
+            // Reset à 0
+            cropper.rotateTo(0);
+            if (rotateSlider) rotateSlider.value = 0;
+            if (rotateInput) rotateInput.value = 0;
+            if (rotateValue) rotateValue.textContent = '0°';
+        } else {
+            // Rotation cumulative
+            const currentAngle = parseFloat(rotateSlider?.value || 0);
+            let newAngle = currentAngle + angle;
+            
+            // Normaliser entre -180 et 180
+            while (newAngle > 180) newAngle -= 360;
+            while (newAngle < -180) newAngle += 360;
+            
+            cropper.rotateTo(newAngle);
+            if (rotateSlider) rotateSlider.value = newAngle;
+            if (rotateInput) rotateInput.value = newAngle;
+            if (rotateValue) rotateValue.textContent = newAngle + '°';
+        }
+    } catch (error) {
+        console.error('Erreur rotateBy:', error);
     }
-    
-    // Sinon, ajouter l'angle
-    const currentAngle = parseInt(rotateSlider?.value || 0);
-    let newAngle = currentAngle + angle;
-    
-    // Limiter entre -180 et 180
-    if (newAngle > 180) newAngle = newAngle - 360;
-    if (newAngle < -180) newAngle = newAngle + 360;
-    
-    if (rotateSlider) rotateSlider.value = newAngle;
-    if (rotateInput) rotateInput.value = newAngle;
-    if (rotateValue) rotateValue.textContent = newAngle + '°';
-    cropper.rotateTo(newAngle);
 }
+
 /**
  * Définir le ratio d'aspect du recadrage
  */
@@ -332,37 +330,4 @@ function resetCrop() {
             console.error('Erreur resetCrop:', error);
         }
     }
-}
-
-/**
- * Fonction pour rotation rapide (boutons)
- */
-function rotateBy(angle) {
-    if (!cropper) return;
-    
-    const rotateSlider = document.getElementById('cropRotate');
-    const rotateInput = document.getElementById('cropRotateInput');
-    const rotateValue = document.getElementById('rotateValue');
-    
-    // Si angle = 0, reset à 0
-    if (angle === 0) {
-        if (rotateSlider) rotateSlider.value = 0;
-        if (rotateInput) rotateInput.value = 0;
-        if (rotateValue) rotateValue.textContent = '0°';
-        cropper.rotateTo(0);
-        return;
-    }
-    
-    // Sinon, ajouter l'angle
-    const currentAngle = parseInt(rotateSlider?.value || 0);
-    let newAngle = currentAngle + angle;
-    
-    // Limiter entre -180 et 180
-    if (newAngle > 180) newAngle = newAngle - 360;
-    if (newAngle < -180) newAngle = newAngle + 360;
-    
-    if (rotateSlider) rotateSlider.value = newAngle;
-    if (rotateInput) rotateInput.value = newAngle;
-    if (rotateValue) rotateValue.textContent = newAngle + '°';
-    cropper.rotateTo(newAngle);
 }
