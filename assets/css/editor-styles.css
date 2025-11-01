@@ -1,0 +1,444 @@
+/* === ÉDITEUR D'IMAGES - STYLES === */
+
+body {
+    background: #f5f7fa;
+}
+
+/* === CONTENEUR PRINCIPAL === */
+.editor-container {
+    max-width: 1600px;
+    margin: 0 auto;
+    padding: 20px;
+}
+
+/* === SÉLECTEUR DE MODE === */
+.mode-selector {
+    background: white;
+    border-radius: 12px;
+    padding: 20px;
+    margin-bottom: 20px;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+}
+
+.mode-tabs {
+    display: flex;
+    gap: 10px;
+    margin-bottom: 15px;
+}
+
+.mode-tab {
+    flex: 1;
+    padding: 15px;
+    border: 2px solid #e0e0e0;
+    border-radius: 10px;
+    cursor: pointer;
+    transition: all 0.3s;
+    text-align: center;
+    background: white;
+}
+
+.mode-tab:hover {
+    border-color: #667eea;
+    transform: translateY(-2px);
+}
+
+.mode-tab.active {
+    border-color: #667eea;
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    color: white;
+}
+
+.mode-tab-title {
+    font-size: 18px;
+    font-weight: 600;
+    margin-bottom: 5px;
+}
+
+.mode-tab-desc {
+    font-size: 13px;
+    opacity: 0.8;
+}
+
+/* === ZONE D'ÉDITION === */
+.editor-workspace {
+    display: grid;
+    grid-template-columns: 300px 1fr 300px;
+    gap: 20px;
+    min-height: 600px;
+}
+
+.editor-sidebar {
+    background: white;
+    border-radius: 12px;
+    padding: 20px;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+}
+
+.editor-canvas-area {
+    background: white;
+    border-radius: 12px;
+    padding: 20px;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    pointer-events: auto !important;
+    position: relative;
+    z-index: 1;
+    overflow: visible;
+}
+
+.editor-canvas-area > * {
+    position: relative;
+    z-index: auto;
+}
+
+.sidebar-title {
+    font-size: 16px;
+    font-weight: 600;
+    margin-bottom: 15px;
+    color: #333;
+}
+
+/* === UPLOAD ZONE === */
+.upload-zone {
+    border: 3px dashed #667eea;
+    border-radius: 12px;
+    padding: 40px 20px;
+    text-align: center;
+    cursor: pointer;
+    transition: all 0.3s;
+    background: #f8f9ff;
+}
+
+.upload-zone:hover {
+    border-color: #764ba2;
+    background: #f0f2ff;
+}
+
+.upload-zone.drag-over {
+    border-color: #764ba2;
+    background: #e8e9ff;
+}
+
+.upload-icon {
+    font-size: 48px;
+    margin-bottom: 15px;
+}
+
+#fileInput {
+    display: none;
+}
+
+/* === CANVAS === */
+#editorCanvas {
+    max-width: 100%;
+    max-height: 600px;
+    border: 1px solid #e0e0e0;
+    border-radius: 8px;
+}
+
+#cropperImage {
+    max-width: 100%;
+    display: none;
+}
+
+#fabricCanvas {
+    border: 1px solid #e0e0e0;
+}
+
+/* CRITICAL : S'assurer que le canvas reçoit les événements de souris */
+.canvas-container {
+    position: relative !important;
+    pointer-events: auto !important;
+    z-index: 999 !important;
+}
+
+.canvas-container canvas {
+    pointer-events: auto !important;
+}
+
+/* S'assurer que rien ne bloque le canvas */
+.upper-canvas {
+    pointer-events: auto !important;
+    z-index: 1000 !important;
+    position: absolute !important;
+    left: 0 !important;
+    top: 0 !important;
+}
+
+.lower-canvas {
+    z-index: 999 !important;
+}
+
+/* Fix pour Fabric.js - forcer les dimensions */
+.canvas-container .upper-canvas {
+    display: block !important;
+}
+
+canvas.upper-canvas {
+    pointer-events: auto !important;
+    cursor: default !important;
+}
+
+/* === CONTRÔLES === */
+.control-group {
+    margin-bottom: 20px;
+}
+
+.control-label {
+    display: block;
+    font-size: 14px;
+    font-weight: 500;
+    margin-bottom: 8px;
+    color: #555;
+}
+
+.control-slider {
+    width: 100%;
+    height: 6px;
+    border-radius: 3px;
+    background: #e0e0e0;
+    outline: none;
+    -webkit-appearance: none;
+}
+
+.control-slider::-webkit-slider-thumb {
+    -webkit-appearance: none;
+    width: 18px;
+    height: 18px;
+    border-radius: 50%;
+    background: #667eea;
+    cursor: pointer;
+}
+
+.control-slider::-moz-range-thumb {
+    width: 18px;
+    height: 18px;
+    border-radius: 50%;
+    background: #667eea;
+    cursor: pointer;
+    border: none;
+}
+
+.control-value {
+    display: inline-block;
+    background: #667eea;
+    color: white;
+    padding: 2px 8px;
+    border-radius: 4px;
+    font-size: 12px;
+    margin-left: 10px;
+}
+
+.mode-content {
+    display: none;
+}
+
+.mode-content.active {
+    display: block;
+}
+
+/* === BOUTONS === */
+.btn {
+    padding: 10px 20px;
+    border: none;
+    border-radius: 8px;
+    cursor: pointer;
+    font-size: 14px;
+    font-weight: 500;
+    transition: all 0.3s;
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.btn-primary {
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    color: white;
+}
+
+.btn-primary:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 4px 12px rgba(102, 126, 234, 0.4);
+}
+
+.btn-secondary {
+    background: #f0f0f0;
+    color: #333;
+}
+
+.btn-secondary:hover {
+    background: #e0e0e0;
+}
+
+.btn-block {
+    width: 100%;
+    justify-content: center;
+}
+
+.btn-group {
+    display: flex;
+    gap: 10px;
+    margin-top: 20px;
+}
+
+.btn-icon {
+    background: #f0f0f0;
+    color: #333;
+    padding: 8px 12px;
+    flex: 1;
+}
+
+.btn-icon:hover {
+    background: #667eea;
+    color: white;
+}
+
+/* === ASPECT RATIO === */
+.aspect-ratio-buttons {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 8px;
+    margin-top: 10px;
+}
+
+.aspect-btn {
+    padding: 8px;
+    border: 2px solid #e0e0e0;
+    border-radius: 6px;
+    background: white;
+    cursor: pointer;
+    font-size: 13px;
+    transition: all 0.3s;
+}
+
+.aspect-btn:hover {
+    border-color: #667eea;
+}
+
+.aspect-btn.active {
+    border-color: #667eea;
+    background: #f0f2ff;
+    color: #667eea;
+}
+
+/* === OUTILS PRO === */
+.tool-section {
+    margin-bottom: 25px;
+    padding-bottom: 20px;
+    border-bottom: 1px solid #e0e0e0;
+}
+
+.tool-section:last-child {
+    border-bottom: none;
+}
+
+.color-preset {
+    display: inline-block;
+    width: 30px;
+    height: 30px;
+    border-radius: 6px;
+    cursor: pointer;
+    margin-right: 8px;
+    margin-bottom: 8px;
+    border: 2px solid #e0e0e0;
+    transition: all 0.3s;
+}
+
+.color-preset:hover {
+    transform: scale(1.1);
+    border-color: #667eea;
+}
+
+.font-preview {
+    padding: 8px;
+    border: 1px solid #e0e0e0;
+    border-radius: 6px;
+    margin-bottom: 5px;
+    cursor: pointer;
+    transition: all 0.3s;
+}
+
+.font-preview:hover {
+    border-color: #667eea;
+    background: #f0f2ff;
+}
+
+.shape-grid {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 8px;
+    margin-top: 10px;
+}
+
+.shape-btn {
+    aspect-ratio: 1;
+    border: 2px solid #e0e0e0;
+    border-radius: 8px;
+    background: white;
+    cursor: pointer;
+    font-size: 24px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: all 0.3s;
+}
+
+.shape-btn:hover {
+    border-color: #667eea;
+    background: #f0f2ff;
+    transform: scale(1.05);
+}
+
+/* === INSTRUCTIONS === */
+.instructions {
+    background: #f8f9ff;
+    border-left: 4px solid #667eea;
+    padding: 15px;
+    border-radius: 8px;
+    margin-bottom: 20px;
+}
+
+.instructions h4 {
+    margin: 0 0 10px 0;
+    color: #667eea;
+    font-size: 14px;
+}
+
+.instructions ul {
+    margin: 0;
+    padding-left: 20px;
+    font-size: 13px;
+    color: #555;
+}
+
+.instructions li {
+    margin-bottom: 5px;
+}
+
+/* === RESPONSIVE === */
+@media (max-width: 1200px) {
+    .editor-workspace {
+        grid-template-columns: 1fr;
+    }
+    
+    .editor-sidebar:first-child {
+        order: -1;
+    }
+}
+
+@media (max-width: 768px) {
+    .mode-tabs {
+        flex-direction: column;
+    }
+    
+    .aspect-ratio-buttons {
+        grid-template-columns: repeat(2, 1fr);
+    }
+    
+    .shape-grid {
+        grid-template-columns: repeat(3, 1fr);
+    }
+}
