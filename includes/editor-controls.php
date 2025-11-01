@@ -94,7 +94,7 @@
                 >
                 
                 <!-- Affichage de la valeur -->
-                <span class="control-value" id="rotateValue" style="min-width: 45px; text-align: center;">0°</span>
+                <span class="control-value" id="rotateValue" style="min-width: 45px; text-align: center; background: #667eea; color: white; padding: 8px 12px; border-radius: 6px; font-weight: 600;">0°</span>
             </div>
             
             <!-- Boutons de rotation rapide -->
