@@ -148,8 +148,16 @@ $cleanName = preg_replace('/[^a-zA-Z0-9_-]/', '_', $originalName);
 $cleanName = preg_replace('/_+/', '_', $cleanName);
 $cleanName = trim($cleanName, '_');
 
-// Construire le nom de base
-$baseName = $prefix . '_' . $cleanName;
+// Option : Suffixe selon le mode (au lieu de préfixe)
+$suffix = match($mode) {
+    'simple' => 'edit',
+    'advanced' => 'crop',
+    'pro' => 'design',
+    default => 'mod'
+};
+
+// Construire : marguerite_robe_verte_edit, marguerite_robe_verte_crop, etc.
+$baseName = $cleanName . '_' . $suffix;
 
 $debugLogs[] = "";
 $debugLogs[] = "📝 NOM DE BASE CONSTRUIT: '$baseName'";

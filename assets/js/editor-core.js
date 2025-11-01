@@ -199,17 +199,17 @@ function switchMode(mode) {
     }
 }
 
-/**
- * Sauvegarde de l'image éditée
- */
 function saveImage(mode) {
+    console.log('🚀 Sauvegarde mode:', mode);
+    
     if (!originalImage) {
         alert('Aucune image chargée');
         return;
     }
     
-    let canvas;
+    let canvas, isFabric = false;
     
+    // Sélectionner le bon canvas selon le mode
     switch(mode) {
         case 'simple':
             canvas = simpleCanvas;
@@ -220,40 +220,86 @@ function saveImage(mode) {
             break;
         case 'pro':
             canvas = fabricCanvas;
+            isFabric = true; // ⭐ Important !
             break;
+        default:
+            console.error('Mode inconnu:', mode);
+            return;
     }
     
-    canvas.toBlob(function(blob) {
-        const formData = new FormData();
+    // Récupérer l'ID de l'image originale
+    const originalImageId = document.getElementById('originalImageId')?.value;
+    console.log('ID original:', originalImageId);
+    
+    // ⭐ FONCTION QUI ENVOIE LE BLOB AU SERVEUR
+    function sendToServer(blob) {
+        console.log('📤 Envoi du blob (', blob.size, 'bytes)');
         
-        // Utiliser le nom du fichier original avec un préfixe
-        const filename = 'edited_' + currentFileName;
-        formData.append('image', blob, filename);
+        const formData = new FormData();
+        formData.append('image', blob, 'edited-image.jpg');
         formData.append('mode', mode);
         
-        // Ajouter l'ID de l'image originale si on édite une image existante
-        const originalImageId = document.getElementById('originalImageId');
-        if (originalImageId && originalImageId.value) {
-            formData.append('original_image_id', originalImageId.value);
+        if (originalImageId) {
+            formData.append('original_image_id', originalImageId);
         }
         
-        // Envoyer au serveur
         fetch('api/save-edited-image.php', {
             method: 'POST',
             body: formData
         })
         .then(response => response.json())
         .then(data => {
+            console.log('📥 Réponse:', data);
+            
+            // Afficher les logs du serveur
+            if (data.debug) {
+                console.log('🐛 LOGS SERVEUR:');
+                data.debug.forEach(log => console.log(log));
+            }
+            
             if (data.success) {
                 alert('✅ Image sauvegardée avec succès !');
-                window.location.href = 'dashboard.php';
+                setTimeout(() => {
+                    window.location.href = 'dashboard.php';
+                }, 1000);
             } else {
                 alert('❌ Erreur : ' + data.error);
             }
         })
         .catch(error => {
-            console.error('Erreur:', error);
+            console.error('💥 Erreur:', error);
             alert('❌ Erreur lors de la sauvegarde');
         });
-    }, 'image/jpeg', 0.9);
+    }
+    
+    // ⭐⭐⭐ DIFFÉRENCE ICI SELON LE TYPE DE CANVAS ⭐⭐⭐
+    if (isFabric) {
+        // Mode Pro : Fabric.js utilise toDataURL()
+        console.log('🎨 Fabric.js → DataURL → Blob');
+        
+        const dataURL = canvas.toDataURL({
+            format: 'jpeg',
+            quality: 0.9
+        });
+        
+        // Convertir DataURL en Blob
+        fetch(dataURL)
+            .then(res => res.blob())
+            .then(blob => {
+                console.log('✅ Conversion réussie');
+                sendToServer(blob);
+            })
+            .catch(error => {
+                console.error('❌ Erreur conversion:', error);
+                alert('Erreur lors de la conversion de l\'image');
+            });
+            
+    } else {
+        // Modes Simple & Advanced : Canvas natif utilise toBlob()
+        console.log('🖼️ Canvas natif → Blob');
+        
+        canvas.toBlob(function(blob) {
+            sendToServer(blob);
+        }, 'image/jpeg', 0.9);
+    }
 }

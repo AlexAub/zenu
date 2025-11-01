@@ -1,7 +1,13 @@
 # Fichiers de configuration sensibles
 config.php
 email-config.php
+test-paths.php
+generate-thumbnails.php
+diagnostic-images.php
+dashboard-old.php
+editeur2.php
 .env
+
 
 # Fichiers uploadés par les utilisateurs
 uploads/
