@@ -370,7 +370,7 @@ require_once 'header.php';
         <?php endif; ?>
     </div>
 
-    <script>
+<script>
         async function restoreImage(imageId) {
             if (!confirm('Voulez-vous restaurer cette image ?')) return;
             
@@ -386,6 +386,11 @@ require_once 'header.php';
                 const data = await response.json();
                 
                 if (data.success) {
+                    // ✅ Afficher un message personnalisé si l'image a été renommée
+                    if (data.renamed) {
+                        alert('✅ ' + data.message);
+                    }
+                    
                     const card = document.getElementById(`image-${imageId}`);
                     card.style.animation = 'fadeOut 0.3s ease-out';
                     setTimeout(() => {
@@ -396,6 +401,7 @@ require_once 'header.php';
                     alert('Erreur: ' + (data.error || 'Impossible de restaurer l\'image'));
                 }
             } catch (error) {
+                console.error('Erreur:', error);
                 alert('Erreur réseau');
             }
         }
@@ -419,33 +425,42 @@ require_once 'header.php';
                     card.style.animation = 'fadeOut 0.3s ease-out';
                     setTimeout(() => {
                         card.remove();
-                        location.reload();
+                        
+                        // Recharger si plus aucune image
+                        if (document.querySelectorAll('.image-card').length === 0) {
+                            location.reload();
+                        }
                     }, 300);
                 } else {
                     alert('Erreur: ' + (data.error || 'Impossible de supprimer l\'image'));
                 }
             } catch (error) {
+                console.error('Erreur:', error);
                 alert('Erreur réseau');
             }
         }
         
         async function emptyTrash() {
-            if (!confirm('⚠️ ATTENTION: Cette action est IRRÉVERSIBLE!\n\nVoulez-vous vraiment VIDER LA CORBEILLE et supprimer définitivement toutes les images ?')) return;
+            if (!confirm('⚠️ ATTENTION: Cette action est IRRÉVERSIBLE!\n\nVoulez-vous vraiment vider la corbeille et supprimer TOUTES les images définitivement ?')) return;
             
             try {
                 const response = await fetch('api/empty-trash.php', {
-                    method: 'POST'
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    }
                 });
                 
                 const data = await response.json();
                 
                 if (data.success) {
-                    alert(data.message);
+                    alert('✅ ' + data.message);
                     location.reload();
                 } else {
                     alert('Erreur: ' + (data.error || 'Impossible de vider la corbeille'));
                 }
             } catch (error) {
+                console.error('Erreur:', error);
                 alert('Erreur réseau');
             }
         }

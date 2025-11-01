@@ -702,23 +702,76 @@ require_once 'header.php'
         </div>
     </div>
     
-    <script>
+ <script>
         let currentRenameId = null;
         
-        // Voir l'image en grand - Ouvre directement l'URL propre
-		function viewImage(imageId, imagePath, prettyUrl) {
-		window.open(prettyUrl, '_blank');
-		}
-        
-
-        
-        // Fermer avec Echap
-        document.addEventListener('keydown', function(e) {
-            if (e.key === 'Escape') {
-                closeModal();
-                closeRenameModal();
+        // Fonction pour mettre à jour les statistiques
+        async function updateStats() {
+            try {
+                const response = await fetch('api/get-stats.php');
+                const data = await response.json();
+                
+                if (data.success) {
+                    // Mettre à jour le compteur d'images
+                    const totalImagesElement = document.querySelector('.stat-card:first-child .stat-value');
+                    if (totalImagesElement) {
+                        totalImagesElement.textContent = data.total_images.toLocaleString();
+                    }
+                    
+                    // Mettre à jour l'espace utilisé
+                    const totalSizeElement = document.querySelector('.stat-card:nth-child(2) .stat-value');
+                    if (totalSizeElement) {
+                        totalSizeElement.textContent = data.total_size_formatted;
+                    }
+                }
+            } catch (error) {
+                console.error('Erreur lors de la mise à jour des stats:', error);
             }
-        });
+        }
+        
+        // Supprimer l'image (soft delete)
+        async function deleteImage(imageId) {
+            if (!confirm('Êtes-vous sûr de vouloir supprimer cette image ? Elle sera déplacée dans la corbeille.')) {
+                return;
+            }
+            
+            try {
+                const response = await fetch('api/delete-image.php', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({ image_id: imageId })
+                });
+                
+                const data = await response.json();
+                
+                if (data.success) {
+                    // Retirer visuellement la carte
+                    const card = document.querySelector(`[data-image-id="${imageId}"]`);
+                    if (card) {
+                        card.style.animation = 'fadeOut 0.3s';
+                        setTimeout(() => {
+                            card.remove();
+                            
+                            // ✅ MISE À JOUR DES COMPTEURS
+                            updateStats();
+                            
+                            // Vérifier si la grille est vide
+                            const remainingCards = document.querySelectorAll('.image-card').length;
+                            if (remainingCards === 0) {
+                                location.reload();
+                            }
+                        }, 300);
+                    }
+                } else {
+                    alert('Erreur: ' + (data.error || 'Impossible de supprimer'));
+                }
+            } catch (error) {
+                console.error('Erreur:', error);
+                alert('Erreur réseau');
+            }
+        }
         
         // Copier le lien direct de l'image
         function copyDirectLink(prettyUrl) {
@@ -771,6 +824,7 @@ require_once 'header.php'
                     alert('Erreur: ' + (data.error || 'Impossible de renommer'));
                 }
             } catch (error) {
+                console.error('Erreur:', error);
                 alert('Erreur réseau');
             }
             
@@ -778,7 +832,7 @@ require_once 'header.php'
         }
         
         // Enter pour valider le renommage
-        document.getElementById('renameInput').addEventListener('keypress', function(e) {
+        document.getElementById('renameInput')?.addEventListener('keypress', function(e) {
             if (e.key === 'Enter') {
                 confirmRename();
             }
@@ -787,38 +841,6 @@ require_once 'header.php'
         // Télécharger l'image
         function downloadImage(imageId) {
             window.location.href = 'download.php?id=' + imageId;
-        }
-        
-        // Supprimer l'image (soft delete)
-        async function deleteImage(imageId) {
-            if (!confirm('Êtes-vous sûr de vouloir supprimer cette image ? Elle sera déplacée dans la corbeille.')) {
-                return;
-            }
-            
-            try {
-                const response = await fetch('api/delete-image.php', {
-                    method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json',
-                    },
-                    body: JSON.stringify({ image_id: imageId })
-                });
-                
-                const data = await response.json();
-                
-                if (data.success) {
-                    // Retirer visuellement la carte
-                    const card = document.querySelector(`[data-image-id="${imageId}"]`);
-                    if (card) {
-                        card.style.animation = 'fadeOut 0.3s';
-                        setTimeout(() => card.remove(), 300);
-                    }
-                } else {
-                    alert('Erreur: ' + (data.error || 'Impossible de supprimer'));
-                }
-            } catch (error) {
-                alert('Erreur réseau');
-            }
         }
         
         // Animation de suppression

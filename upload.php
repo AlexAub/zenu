@@ -25,8 +25,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_FILES['image'])) {
         
         if (!in_array($mimeType, $allowedTypes)) {
             $error = 'Type de fichier non autorisé';
-        } elseif ($file['size'] > 10 * 1024 * 1024) {
-            $error = 'Fichier trop volumineux (maximum 10 Mo)';
+        } elseif ($file['size'] > 2 * 1024 * 1024) {
+            // ✅ CORRECTION 1 : Limite à 2 MB au lieu de 10 MB
+            $error = 'Fichier trop volumineux (maximum 2 Mo)';
         } else {
             $userFolder = "user_" . $userId;
             $uploadDir = "uploads/" . $userFolder;
@@ -41,53 +42,107 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_FILES['image'])) {
             
             $originalFilename = pathinfo($file['name'], PATHINFO_FILENAME);
             $extension = strtolower(pathinfo($file['name'], PATHINFO_EXTENSION));
-            $filename = uniqid() . '.' . $extension;
-            $filepath = $uploadDir . '/' . $filename;
             
-            if (move_uploaded_file($file['tmp_name'], $filepath)) {
-                $metadata = getImageMetadata($filepath);
-                $cleanName = preg_replace('/[^a-zA-Z0-9_-]/', '_', $originalFilename);
-                $cleanName = preg_replace('/_+/', '_', $cleanName);
-                $cleanName = trim($cleanName, '_');
+            // Nettoyer le nom original
+            $cleanName = preg_replace('/[^a-zA-Z0-9_-]/', '_', $originalFilename);
+            $cleanName = preg_replace('/_+/', '_', $cleanName);
+            $cleanName = trim($cleanName, '_');
+            
+            // ✅ CORRECTION 2 : Vérifier les doublons dans original_filename
+            $finalCleanName = $cleanName;
+            $counter = 1;
+            $maxAttempts = 100;
+            
+            while ($counter <= $maxAttempts) {
+                // Vérifier si ce nom existe déjà
+                $stmt = $pdo->prepare("
+                    SELECT COUNT(*) as count
+                    FROM images 
+                    WHERE user_id = ? 
+                    AND original_filename = ?
+                    AND is_deleted = 0
+                ");
+                $stmt->execute([$userId, $finalCleanName]);
+                $result = $stmt->fetch();
                 
-                $thumbPath = null;
-                if (function_exists('createThumbnail')) {
+                if ($result['count'] == 0) {
+                    // Nom disponible !
+                    break;
+                }
+                
+                // Nom occupé, ajouter un suffixe
+                $counter++;
+                $finalCleanName = $cleanName . '_' . $counter;
+            }
+            
+            if ($counter > $maxAttempts) {
+                $error = 'Trop de fichiers avec des noms similaires';
+            } else {
+                // Générer un nom de fichier physique unique
+                $filename = uniqid() . '.' . $extension;
+                $filepath = $uploadDir . '/' . $filename;
+                
+                if (move_uploaded_file($file['tmp_name'], $filepath)) {
+                    $metadata = getImageMetadata($filepath);
+                    
+                    // Créer la miniature
+                    $thumbPath = null;
                     $thumbFilename = $filename;
                     $thumbFullPath = $thumbDir . '/' . $thumbFilename;
-                    if (createThumbnail($filepath, $thumbFullPath, 300, 300)) {
+                    
+                    // ✅ Utiliser generateThumbnail() (nom correct de la fonction)
+                    if (generateThumbnail($filepath, $thumbFullPath, 300, 300)) {
                         $thumbPath = $thumbDir . '/' . $thumbFilename;
                     }
+                    
+                    // Insérer en base de données avec le nom unique
+                    $stmt = $pdo->prepare("
+                        INSERT INTO images 
+                        (user_id, filename, original_filename, file_path, thumbnail_path, width, height, file_size, mime_type) 
+                        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+                    ");
+                    
+                    $stmt->execute([
+                        $userId,
+                        $filename,
+                        $finalCleanName,  // ✅ Utilise le nom unique vérifié
+                        $filepath,
+                        $thumbPath,
+                        $metadata['width'],
+                        $metadata['height'],
+                        $metadata['size'],
+                        $metadata['mime']
+                    ]);
+                    
+                    $success = 'Image uploadée avec succès !';
+                    if ($counter > 1) {
+                        $success = "Image uploadée sous le nom '$finalCleanName' (suffixe ajouté car nom déjà utilisé)";
+                    }
+                    
+                    if (function_exists('logSecurityAction')) {
+                        logSecurityAction($userId, 'image_uploaded', "File: $originalFilename, Size: " . formatFileSize($metadata['size']));
+                    }
+                    
+                    // ✅ CORRECTION 3 : Redirection immédiate au lieu de 2 secondes
+                    header("Location: dashboard.php");
+                    exit;
+                } else {
+                    $error = 'Erreur lors de l\'enregistrement du fichier';
                 }
-                
-                $stmt = $pdo->prepare("
-                    INSERT INTO images 
-                    (user_id, filename, original_filename, file_path, thumbnail_path, width, height, file_size, mime_type) 
-                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
-                ");
-                
-                $stmt->execute([
-                    $userId,
-                    $filename,
-                    $cleanName,
-                    $filepath,
-                    $thumbPath,
-                    $metadata['width'],
-                    $metadata['height'],
-                    $metadata['size'],
-                    $metadata['mime']
-                ]);
-                
-                $success = 'Image uploadée avec succès !';
-                
-                if (function_exists('logSecurityAction')) {
-                    logSecurityAction($userId, 'image_uploaded', "File: $originalFilename, Size: " . formatFileSize($metadata['size']));
-                }
-                
-                header("Refresh: 2; url=dashboard.php");
-            } else {
-                $error = 'Erreur lors de l\'enregistrement du fichier';
             }
         }
+    } else {
+        // Gestion des erreurs d'upload
+        $errorMessages = [
+            UPLOAD_ERR_INI_SIZE => 'Fichier trop volumineux (limite serveur)',
+            UPLOAD_ERR_FORM_SIZE => 'Fichier trop volumineux',
+            UPLOAD_ERR_PARTIAL => 'Fichier partiellement uploadé',
+            UPLOAD_ERR_NO_FILE => 'Aucun fichier envoyé',
+            UPLOAD_ERR_NO_TMP_DIR => 'Dossier temporaire manquant',
+            UPLOAD_ERR_CANT_WRITE => 'Échec écriture disque',
+            UPLOAD_ERR_EXTENSION => 'Extension PHP a arrêté l\'upload'
+        ];
+        $error = $errorMessages[$file['error']] ?? 'Erreur lors de l\'upload';
     }
 }
 
@@ -177,6 +232,14 @@ require_once 'header.php';
         .drop-zone-hint {
             font-size: 14px;
             color: #999;
+            margin-bottom: 5px;
+        }
+        
+        .size-limit {
+            font-size: 12px;
+            color: #f44336;
+            font-weight: 600;
+            margin-top: 10px;
         }
         
         input[type="file"] {
@@ -189,107 +252,36 @@ require_once 'header.php';
             cursor: pointer;
         }
         
-        .preview-container {
-            display: none;
-            margin-top: 30px;
-        }
-        
-        .preview-container.show {
-            display: block;
-        }
-        
-        .preview-image {
-            width: 100%;
-            max-height: 400px;
-            object-fit: contain;
-            border-radius: 12px;
-            margin-bottom: 20px;
-            background: #f5f5f5;
-        }
-        
-        .file-info {
-            background: #f8f9fa;
-            padding: 20px;
-            border-radius: 12px;
-            margin-bottom: 20px;
-        }
-        
-        .file-info-item {
-            display: flex;
-            justify-content: space-between;
-            padding: 8px 0;
-            border-bottom: 1px solid #e0e0e0;
-        }
-        
-        .file-info-item:last-child {
-            border-bottom: none;
-        }
-        
-        .file-info-label {
-            color: #666;
-            font-weight: 600;
-        }
-        
-        .file-info-value {
-            color: #333;
-        }
-        
-        .btn {
-            width: 100%;
-            padding: 14px;
-            border: none;
-            border-radius: 10px;
-            font-size: 16px;
-            font-weight: 600;
-            cursor: pointer;
-            transition: all 0.3s;
-            margin-bottom: 10px;
-        }
-        
-        .btn-primary {
+        .upload-btn {
+            margin-top: 20px;
+            padding: 15px 30px;
             background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
             color: white;
+            border: none;
+            border-radius: 8px;
+            font-size: 16px;
+            cursor: pointer;
+            width: 100%;
+            font-weight: 600;
+            transition: all 0.3s;
         }
         
-        .btn-primary:hover {
+        .upload-btn:hover {
             transform: translateY(-2px);
-            box-shadow: 0 8px 20px rgba(102, 126, 234, 0.4);
+            box-shadow: 0 10px 30px rgba(102, 126, 234, 0.4);
         }
         
-        .btn-secondary {
-            background: #f5f5f5;
-            color: #666;
-        }
-        
-        .btn-secondary:hover {
-            background: #e0e0e0;
-        }
-        
-        .progress-bar {
-            height: 8px;
-            background: #e0e0e0;
-            border-radius: 4px;
-            overflow: hidden;
-            margin-bottom: 20px;
-            display: none;
-        }
-        
-        .progress-bar.show {
-            display: block;
-        }
-        
-        .progress-bar-fill {
-            height: 100%;
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-            width: 0%;
-            transition: width 0.3s ease;
+        .upload-btn:disabled {
+            background: #ccc;
+            cursor: not-allowed;
+            transform: none;
         }
         
         .alert {
             padding: 15px 20px;
-            border-radius: 10px;
+            border-radius: 8px;
             margin-bottom: 20px;
-            font-weight: 500;
+            font-size: 14px;
         }
         
         .alert-success {
@@ -304,99 +296,92 @@ require_once 'header.php';
             border: 1px solid #f5c6cb;
         }
         
-        @media (max-width: 768px) {
-            .upload-box {
-                padding: 30px 20px;
-            }
-            
-            .drop-zone {
-                padding: 40px 20px;
-            }
-            
-            .drop-zone-icon {
-                font-size: 48px;
-            }
+        .preview-area {
+            margin-top: 20px;
+            display: none;
+            text-align: center;
+        }
+        
+        .preview-image {
+            max-width: 100%;
+            max-height: 400px;
+            border-radius: 8px;
+            margin: 0 auto 10px auto;
+            display: block;
+            object-fit: contain;
+        }
+        
+        .preview-info {
+            font-size: 13px;
+            color: #666;
+            text-align: center;
+        }
+        
+        .back-link {
+            display: inline-block;
+            margin-top: 20px;
+            color: #667eea;
+            text-decoration: none;
+            font-size: 14px;
+        }
+        
+        .back-link:hover {
+            text-decoration: underline;
         }
     </style>
 </head>
 <body>
-    
     <div class="upload-container">
         <div class="upload-box">
             <div class="upload-header">
-                <h2>📤 Upload d'image</h2>
-                <p>Uploadez vos images en toute simplicité</p>
+                <h2>📤 Upload une image</h2>
+                <p>Glissez-déposez votre image ou cliquez pour la sélectionner</p>
             </div>
             
             <?php if ($success): ?>
-                <div class="alert alert-success">
-                    ✅ <?= htmlspecialchars($success) ?> Redirection vers le dashboard...
-                </div>
+                <div class="alert alert-success">✅ <?= htmlspecialchars($success) ?></div>
             <?php endif; ?>
             
             <?php if ($error): ?>
-                <div class="alert alert-error">
-                    ❌ <?= htmlspecialchars($error) ?>
-                </div>
+                <div class="alert alert-error">❌ <?= htmlspecialchars($error) ?></div>
             <?php endif; ?>
             
             <form method="POST" enctype="multipart/form-data" id="uploadForm">
                 <div class="drop-zone" id="dropZone">
-                    <div class="drop-zone-icon">📷</div>
-                    <div class="drop-zone-text">Cliquez ou glissez une image ici</div>
-                    <div class="drop-zone-hint">JPG, PNG, GIF ou WebP - Maximum 10 Mo</div>
-                    <input type="file" 
-                           name="image" 
-                           id="fileInput" 
-                           accept="image/jpeg,image/png,image/gif,image/webp"
-                           required>
+                    <div class="drop-zone-icon">🖼️</div>
+                    <div class="drop-zone-text">Glissez votre image ici</div>
+                    <div class="drop-zone-hint">ou cliquez pour parcourir</div>
+                    <div class="size-limit">⚠️ Limite : 2 Mo maximum</div>
+                    <input type="file" name="image" id="imageInput" accept="image/*" required>
                 </div>
                 
-                <div class="preview-container" id="previewContainer">
-                    <img src="" alt="Preview" class="preview-image" id="previewImage">
-                    
-                    <div class="file-info" id="fileInfo">
-                        <div class="file-info-item">
-                            <span class="file-info-label">Nom du fichier:</span>
-                            <span class="file-info-value" id="fileName">-</span>
-                        </div>
-                        <div class="file-info-item">
-                            <span class="file-info-label">Taille:</span>
-                            <span class="file-info-value" id="fileSize">-</span>
-                        </div>
-                        <div class="file-info-item">
-                            <span class="file-info-label">Dimensions:</span>
-                            <span class="file-info-value" id="fileDimensions">-</span>
-                        </div>
-                    </div>
-                    
-                    <div class="progress-bar" id="progressBar">
-                        <div class="progress-bar-fill" id="progressBarFill"></div>
-                    </div>
-                    
-                    <button type="submit" class="btn btn-primary" id="uploadBtn">
-                        ✨ Uploader l'image
-                    </button>
-                    
-                    <button type="button" class="btn btn-secondary" onclick="resetForm()">
-                        🔄 Choisir une autre image
-                    </button>
+                <div class="preview-area" id="previewArea">
+                    <img id="previewImage" class="preview-image" alt="Aperçu">
+                    <div class="preview-info" id="previewInfo"></div>
                 </div>
+                
+                <button type="submit" class="upload-btn" id="uploadBtn">
+                    📤 Uploader l'image
+                </button>
             </form>
+            
+            <a href="dashboard.php" class="back-link">← Retour au dashboard</a>
         </div>
     </div>
-
+    
     <script>
         const dropZone = document.getElementById('dropZone');
-        const fileInput = document.getElementById('fileInput');
-        const previewContainer = document.getElementById('previewContainer');
-        const previewImage = document.getElementById('previewImage');
+        const imageInput = document.getElementById('imageInput');
         const uploadForm = document.getElementById('uploadForm');
         const uploadBtn = document.getElementById('uploadBtn');
-        const progressBar = document.getElementById('progressBar');
-        const progressBarFill = document.getElementById('progressBarFill');
+        const previewArea = document.getElementById('previewArea');
+        const previewImage = document.getElementById('previewImage');
+        const previewInfo = document.getElementById('previewInfo');
         
-        // Drag and drop
+        // Limite de taille : 2 MB
+        const MAX_SIZE = 2 * 1024 * 1024;
+        
+        // Drag & Drop
         dropZone.addEventListener('dragover', (e) => {
             e.preventDefault();
             dropZone.classList.add('drag-over');
@@ -410,86 +395,48 @@ require_once 'header.php';
             e.preventDefault();
             dropZone.classList.remove('drag-over');
             
-            const files = e.dataTransfer.files;
-            if (files.length > 0) {
-                fileInput.files = files;
-                handleFileSelect(files[0]);
+            if (e.dataTransfer.files.length > 0) {
+                imageInput.files = e.dataTransfer.files;
+                handleFileSelect();
             }
         });
         
-        // Changement de fichier
-        fileInput.addEventListener('change', (e) => {
-            if (e.target.files.length > 0) {
-                handleFileSelect(e.target.files[0]);
-            }
-        });
+        // Sélection de fichier
+        imageInput.addEventListener('change', handleFileSelect);
         
-        // Gérer la sélection de fichier
-        function handleFileSelect(file) {
+        function handleFileSelect() {
+            const file = imageInput.files[0];
+            
+            if (!file) return;
+            
+            // Vérifier le type
             if (!file.type.startsWith('image/')) {
-                alert('Veuillez sélectionner une image');
+                alert('❌ Veuillez sélectionner une image valide');
+                imageInput.value = '';
                 return;
             }
             
-            if (file.size > 10 * 1024 * 1024) {
-                alert('Fichier trop volumineux (maximum 10 Mo)');
+            // Vérifier la taille
+            if (file.size > MAX_SIZE) {
+                alert(`❌ Fichier trop volumineux : ${(file.size / 1024 / 1024).toFixed(2)} Mo\n\nMaximum autorisé : 2 Mo`);
+                imageInput.value = '';
                 return;
             }
             
-            document.getElementById('fileName').textContent = file.name;
-            document.getElementById('fileSize').textContent = formatFileSize(file.size);
-            
+            // Afficher l'aperçu
             const reader = new FileReader();
-            reader.onload = (e) => {
+            reader.onload = function(e) {
                 previewImage.src = e.target.result;
-                
-                const img = new Image();
-                img.onload = function() {
-                    document.getElementById('fileDimensions').textContent = 
-                        this.width + ' × ' + this.height + ' px';
-                };
-                img.src = e.target.result;
-                
-                previewContainer.classList.add('show');
-                dropZone.style.display = 'none';
+                previewInfo.textContent = `${file.name} - ${(file.size / 1024).toFixed(0)} Ko`;
+                previewArea.style.display = 'block';
             };
             reader.readAsDataURL(file);
         }
         
-        function resetForm() {
-            fileInput.value = '';
-            previewContainer.classList.remove('show');
-            dropZone.style.display = 'block';
-            progressBar.classList.remove('show');
-            progressBarFill.style.width = '0%';
-        }
-        
-        function formatFileSize(bytes) {
-            if (bytes >= 1073741824) {
-                return (bytes / 1073741824).toFixed(2) + ' Go';
-            } else if (bytes >= 1048576) {
-                return (bytes / 1048576).toFixed(2) + ' Mo';
-            } else if (bytes >= 1024) {
-                return (bytes / 1024).toFixed(2) + ' Ko';
-            } else {
-                return bytes + ' octets';
-            }
-        }
-        
-        uploadForm.addEventListener('submit', (e) => {
+        // Désactiver le bouton pendant l'upload
+        uploadForm.addEventListener('submit', function() {
             uploadBtn.disabled = true;
             uploadBtn.textContent = '⏳ Upload en cours...';
-            progressBar.classList.add('show');
-            
-            let progress = 0;
-            const interval = setInterval(() => {
-                progress += 10;
-                progressBarFill.style.width = progress + '%';
-                
-                if (progress >= 90) {
-                    clearInterval(interval);
-                }
-            }, 200);
         });
     </script>
 </body>

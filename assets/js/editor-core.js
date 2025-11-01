@@ -236,7 +236,7 @@ function saveImage(mode) {
         console.log('📤 Envoi du blob (', blob.size, 'bytes)');
         
         const formData = new FormData();
-        formData.append('image', blob, 'edited-image.jpg');
+        formData.append('image', blob, currentFileName);
         formData.append('mode', mode);
         
         if (originalImageId) {

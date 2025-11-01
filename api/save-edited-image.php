@@ -96,23 +96,13 @@ if (!is_dir($thumb_dir)) mkdir($thumb_dir, 0755, true);
 
 $extension = 'jpg';
 
-// Préfixe selon le mode
-$prefix = match($mode) {
-    'simple' => 'Editee',
-    'advanced' => 'Recadree',
-    'pro' => 'Designee',
-    default => 'Modifiee'
-};
-
-$debugLogs[] = "";
-$debugLogs[] = "🏷️ PRÉFIXE DÉTERMINÉ: '$prefix'";
-
 // ⭐⭐⭐ RÉCUPÉRATION DU NOM ORIGINAL ⭐⭐⭐
 $originalName = 'Image';
 
 $debugLogs[] = "";
 $debugLogs[] = "🔍 RECHERCHE DU NOM ORIGINAL:";
 
+// MÉTHODE 1 : Si on a un original_image_id, chercher en base
 if (isset($_POST['original_image_id']) && !empty($_POST['original_image_id'])) {
     $origId = (int)$_POST['original_image_id'];
     $debugLogs[] = "   • original_image_id reçu: $origId";
@@ -130,16 +120,34 @@ if (isset($_POST['original_image_id']) && !empty($_POST['original_image_id'])) {
         // Récupérer le nom et enlever l'extension
         $originalName = pathinfo($origImage['original_filename'], PATHINFO_FILENAME);
         
-        // Retirer les préfixes existants
-        $originalName = preg_replace('/^(Editee|Recadree|Designee|Modifiee)_/', '', $originalName);
+        // Retirer les suffixes existants
+        $originalName = preg_replace('/_(edit|crop|design|mod)(_\d+)?$/', '', $originalName);
         
         $debugLogs[] = "   ✅ Nom récupéré et nettoyé: '$originalName'";
     } else {
         $debugLogs[] = "   ⚠️ Aucune image trouvée avec cet ID pour user_id=$userId";
+    }
+}
+
+// MÉTHODE 2 : Si pas d'original_image_id OU pas trouvé en BDD, utiliser le nom du fichier téléchargé
+if ($originalName === 'Image' && !empty($file['name']) && $file['name'] !== 'edited-image.jpg') {
+    $debugLogs[] = "   • Tentative d'utiliser le nom du fichier téléchargé: '{$file['name']}'";
+    
+    // Extraire le nom sans extension
+    $uploadedName = pathinfo($file['name'], PATHINFO_FILENAME);
+    
+    // Retirer les suffixes existants
+    $uploadedName = preg_replace('/_(edit|crop|design|mod)(_\d+)?$/', '', $uploadedName);
+    
+    if (!empty($uploadedName) && $uploadedName !== 'edited-image') {
+        $originalName = $uploadedName;
+        $debugLogs[] = "   ✅ Nom récupéré du fichier téléchargé: '$originalName'";
+    } else {
+        $debugLogs[] = "   ⚠️ Nom du fichier téléchargé non utilisable";
         $debugLogs[] = "   → Utilisation du nom par défaut: '$originalName'";
     }
-} else {
-    $debugLogs[] = "   ⚠️ Aucun original_image_id fourni dans POST";
+} else if ($originalName === 'Image') {
+    $debugLogs[] = "   ⚠️ Aucun nom valide trouvé";
     $debugLogs[] = "   → Utilisation du nom par défaut: '$originalName'";
 }
 
@@ -148,7 +156,7 @@ $cleanName = preg_replace('/[^a-zA-Z0-9_-]/', '_', $originalName);
 $cleanName = preg_replace('/_+/', '_', $cleanName);
 $cleanName = trim($cleanName, '_');
 
-// Option : Suffixe selon le mode (au lieu de préfixe)
+// Suffixe selon le mode
 $suffix = match($mode) {
     'simple' => 'edit',
     'advanced' => 'crop',
@@ -156,7 +164,7 @@ $suffix = match($mode) {
     default => 'mod'
 };
 
-// Construire : marguerite_robe_verte_edit, marguerite_robe_verte_crop, etc.
+// Construire : marguerite_edit, photo_crop, etc.
 $baseName = $cleanName . '_' . $suffix;
 
 $debugLogs[] = "";
