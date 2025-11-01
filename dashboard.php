@@ -702,8 +702,13 @@ require_once 'header.php'
         </div>
     </div>
     
- <script>
+<script>
         let currentRenameId = null;
+        
+        // Voir l'image en grand - Ouvre directement l'URL propre
+        function viewImage(imageId, imagePath, prettyUrl) {
+            window.open(prettyUrl, '_blank');
+        }
         
         // Fonction pour mettre à jour les statistiques
         async function updateStats() {
