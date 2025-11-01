@@ -456,3 +456,179 @@ canvas.upper-canvas {
            grid-template-columns: 260px 1fr 260px !important;
        }
    }
+
+/* === MODE AVANCÉ - VERSION 5 - FOND COMPLET === */
+
+/* ✅ Conteneur principal - PLUS GRAND pour accueillir l'image */
+.editor-canvas-area {
+    background: white;
+    border-radius: 12px;
+    padding: 20px;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    min-height: 600px; /* ✅ Augmenté de 500 à 600 */
+    max-height: none !important; /* ✅ PAS DE LIMITE */
+}
+
+/* ✅ Image Cropper - sans limites strictes */
+#cropperImage {
+    display: none;
+    max-width: 100%;
+    max-height: none !important; /* ✅ PAS DE LIMITE */
+}
+
+/* ✅ Conteneur Cropper.js - GRAND et flexible */
+.cropper-container {
+    max-width: 100% !important;
+    max-height: none !important; /* ✅ PAS DE LIMITE */
+    min-height: 600px !important; /* ✅ Minimum plus grand */
+    margin: 0 auto !important;
+}
+
+/* ✅ Canvas Cropper - sans limites */
+.cropper-canvas,
+.cropper-canvas img {
+    max-width: none !important;
+    max-height: none !important; /* ✅ PAS DE LIMITE */
+}
+
+/* ✅ Wrap box - sans limites */
+.cropper-wrap-box {
+    max-width: none !important;
+    max-height: none !important;
+}
+
+/* ✅ Fond quadrillé TRÈS VISIBLE */
+.cropper-bg {
+    background-color: #f0f0f0 !important;
+    background-image: 
+        repeating-linear-gradient(
+            0deg,
+            #d0d0d0,
+            #d0d0d0 1px,
+            transparent 1px,
+            transparent 12px
+        ),
+        repeating-linear-gradient(
+            90deg,
+            #d0d0d0,
+            #d0d0d0 1px,
+            transparent 1px,
+            transparent 12px
+        ) !important;
+    background-size: 12px 12px !important;
+}
+
+/* ✅ Zone modale (zone sombre autour du crop) - BIEN VISIBLE */
+.cropper-modal {
+    background-color: rgba(0, 0, 0, 0.6) !important; /* ✅ Plus sombre */
+    opacity: 1 !important;
+}
+
+/* ✅ Lignes de la grille - bleu épais */
+.cropper-line {
+    background-color: #667eea !important;
+    opacity: 1 !important;
+}
+
+.cropper-line.line-e,
+.cropper-line.line-w {
+    width: 2px !important; /* ✅ Plus épais */
+}
+
+.cropper-line.line-n,
+.cropper-line.line-s {
+    height: 2px !important; /* ✅ Plus épais */
+}
+
+/* ✅ Points de resize - GROS et visibles */
+.cropper-point {
+    background-color: #667eea !important;
+    width: 12px !important; /* ✅ Plus gros */
+    height: 12px !important;
+    opacity: 1 !important;
+    border: 3px solid white !important;
+    border-radius: 50% !important;
+    box-shadow: 0 0 0 1px rgba(0,0,0,0.3) !important;
+}
+
+/* ✅ Point central - encore plus gros */
+.cropper-point.point-center {
+    background-color: rgba(102, 126, 234, 0.5) !important;
+    width: 24px !important;
+    height: 24px !important;
+}
+
+/* ✅ Bordure de la zone de crop - épaisse */
+.cropper-view-box {
+    outline: 3px solid #667eea !important; /* ✅ Plus épais */
+    outline-color: rgba(102, 126, 234, 0.9) !important;
+}
+
+/* ✅ Zone de crop */
+.cropper-face {
+    background-color: transparent !important;
+}
+
+/* Canvas mode simple */
+#editorCanvas {
+    max-width: 100%;
+    max-height: 700px;
+    border: 1px solid #e0e0e0;
+    border-radius: 8px;
+}
+
+/* Canvas Pro */
+#fabricCanvas {
+    border: 1px solid #e0e0e0;
+    max-width: 100%;
+    max-height: 700px;
+}
+
+/* ✅ Grid principal - colonnes ajustées */
+.editor-workspace {
+    display: grid;
+    grid-template-columns: 270px 1fr 270px; /* ✅ Sidebars encore plus petites */
+    gap: 15px; /* ✅ Gap réduit */
+    min-height: 600px;
+}
+
+/* Responsive */
+@media (max-width: 1600px) {
+    .editor-workspace {
+        grid-template-columns: 260px 1fr 260px;
+    }
+}
+
+@media (max-width: 1400px) {
+    .editor-workspace {
+        grid-template-columns: 250px 1fr 250px;
+    }
+}
+
+@media (max-width: 1200px) {
+    .editor-workspace {
+        grid-template-columns: 1fr;
+    }
+}
+
+/* Empêcher le scroll horizontal */
+body, html {
+    overflow-x: hidden;
+}
+
+.editor-container {
+    overflow-x: hidden;
+    max-width: 100%;
+}
+
+/* ✅ Scroll vertical si vraiment nécessaire */
+@media (max-height: 900px) {
+    .editor-canvas-area {
+        overflow-y: auto;
+        max-height: calc(100vh - 200px);
+    }
+}

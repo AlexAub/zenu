@@ -6,6 +6,8 @@
 // Variables du mode simple
 let currentRotation = 0;
 let currentFlipH = false;
+let baseWidth = 0;  // ✅ Dimensions de base de l'image
+let baseHeight = 0;
 let filters = {
     brightness: 100,
     contrast: 100,
@@ -17,13 +19,23 @@ let filters = {
  * Charger l'image dans le mode simple
  */
 function loadSimpleMode(img) {
-    simpleCanvas.width = Math.min(img.width, 1000);
-    simpleCanvas.height = (simpleCanvas.width / img.width) * img.height;
+    // ✅ Sauvegarder les dimensions de base
+    baseWidth = Math.min(img.width, 1000);
+    baseHeight = (baseWidth / img.width) * img.height;
+    
+    // Réinitialiser la rotation
+    currentRotation = 0;
+    currentFlipH = false;
+    
+    // Définir les dimensions initiales
+    simpleCanvas.width = baseWidth;
+    simpleCanvas.height = baseHeight;
+    
     simpleCanvas.style.display = 'block';
     document.getElementById('cropperImage').style.display = 'none';
     document.getElementById('fabricCanvas').style.display = 'none';
     
-    // IMPORTANT : Cacher le message empty state
+    // Cacher le message empty state
     const emptyState = document.getElementById('emptyState');
     if (emptyState) {
         emptyState.style.display = 'none';
@@ -38,23 +50,44 @@ function loadSimpleMode(img) {
 function drawSimpleCanvas() {
     if (!originalImage) return;
     
+    // ✅ Calculer les dimensions selon la rotation actuelle
+    const normalizedRotation = ((currentRotation % 360) + 360) % 360; // Normaliser entre 0 et 360
+    const isRotated90or270 = normalizedRotation === 90 || normalizedRotation === 270;
+    
+    // ✅ Inverser les dimensions si rotation de 90° ou 270°
+    let canvasWidth, canvasHeight;
+    if (isRotated90or270) {
+        canvasWidth = baseHeight;
+        canvasHeight = baseWidth;
+    } else {
+        canvasWidth = baseWidth;
+        canvasHeight = baseHeight;
+    }
+    
+    // ✅ Mettre à jour les dimensions du canvas
+    if (simpleCanvas.width !== canvasWidth || simpleCanvas.height !== canvasHeight) {
+        simpleCanvas.width = canvasWidth;
+        simpleCanvas.height = canvasHeight;
+    }
+    
+    // Nettoyer le canvas
     simpleCtx.clearRect(0, 0, simpleCanvas.width, simpleCanvas.height);
     simpleCtx.save();
     
-    // Appliquer rotation
+    // ✅ Déplacer l'origine au centre pour la rotation
+    simpleCtx.translate(simpleCanvas.width / 2, simpleCanvas.height / 2);
+    
+    // Appliquer la rotation
     if (currentRotation !== 0) {
-        simpleCtx.translate(simpleCanvas.width / 2, simpleCanvas.height / 2);
         simpleCtx.rotate((currentRotation * Math.PI) / 180);
-        simpleCtx.translate(-simpleCanvas.width / 2, -simpleCanvas.height / 2);
     }
     
-    // Appliquer flip
+    // Appliquer le flip horizontal
     if (currentFlipH) {
-        simpleCtx.translate(simpleCanvas.width, 0);
         simpleCtx.scale(-1, 1);
     }
     
-    // Appliquer filtres CSS
+    // Appliquer les filtres CSS
     const filterString = `
         brightness(${filters.brightness}%)
         contrast(${filters.contrast}%)
@@ -63,7 +96,25 @@ function drawSimpleCanvas() {
     `;
     simpleCtx.filter = filterString;
     
-    simpleCtx.drawImage(originalImage, 0, 0, simpleCanvas.width, simpleCanvas.height);
+    // ✅ Dessiner l'image centrée
+    // Les dimensions à dessiner sont toujours basées sur l'orientation originale
+    let drawWidth, drawHeight;
+    if (isRotated90or270) {
+        drawWidth = canvasHeight;
+        drawHeight = canvasWidth;
+    } else {
+        drawWidth = canvasWidth;
+        drawHeight = canvasHeight;
+    }
+    
+    simpleCtx.drawImage(
+        originalImage, 
+        -drawWidth / 2, 
+        -drawHeight / 2, 
+        drawWidth, 
+        drawHeight
+    );
+    
     simpleCtx.restore();
 }
 
@@ -92,7 +143,10 @@ function setupSimpleControls() {
  * Rotation de l'image
  */
 function rotate(degrees) {
+    // ✅ Simplement incrémenter la rotation
     currentRotation = (currentRotation + degrees) % 360;
+    
+    // ✅ drawSimpleCanvas() s'occupera d'ajuster les dimensions
     drawSimpleCanvas();
 }
 
@@ -137,6 +191,13 @@ function resetFilters() {
     filters = { brightness: 100, contrast: 100, saturation: 100, blur: 0 };
     currentRotation = 0;
     currentFlipH = false;
+    
+    // ✅ Réinitialiser aux dimensions de base
+    if (baseWidth && baseHeight) {
+        simpleCanvas.width = baseWidth;
+        simpleCanvas.height = baseHeight;
+    }
+    
     updateSliders();
     drawSimpleCanvas();
 }
