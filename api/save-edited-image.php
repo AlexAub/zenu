@@ -8,6 +8,7 @@ header('Content-Type: application/json');
 // Array pour collecter les logs
 $debugLogs = [];
 $debugLogs[] = "=== DÉBUT SAUVEGARDE IMAGE ÉDITÉE ===";
+$debugLogs[] = "Timestamp: " . date('Y-m-d H:i:s');
 
 // Vérifier la connexion
 if (!isLoggedIn()) {
@@ -26,14 +27,44 @@ $mode = $_POST['mode'] ?? 'simple';
 $debugLogs[] = "User ID: $userId";
 $debugLogs[] = "Mode: $mode";
 
+// LOG: Afficher TOUS les POST reçus
+$debugLogs[] = "";
+$debugLogs[] = "📦 DONNÉES POST REÇUES:";
+foreach ($_POST as $key => $value) {
+    $debugLogs[] = "   • $key: " . (is_string($value) ? "'$value'" : print_r($value, true));
+}
+
 // Vérifier si un fichier est envoyé
 if (!isset($_FILES['image']) || $_FILES['image']['error'] !== UPLOAD_ERR_OK) {
-    $debugLogs[] = "❌ Aucun fichier reçu";
+    $debugLogs[] = "";
+    $debugLogs[] = "❌ PROBLÈME FICHIER:";
+    $debugLogs[] = "   • isset(\$_FILES['image']): " . (isset($_FILES['image']) ? 'OUI' : 'NON');
+    if (isset($_FILES['image'])) {
+        $debugLogs[] = "   • Error code: " . $_FILES['image']['error'];
+        $errorMessages = [
+            UPLOAD_ERR_INI_SIZE => 'Fichier trop volumineux (php.ini)',
+            UPLOAD_ERR_FORM_SIZE => 'Fichier trop volumineux (formulaire)',
+            UPLOAD_ERR_PARTIAL => 'Fichier partiellement uploadé',
+            UPLOAD_ERR_NO_FILE => 'Aucun fichier envoyé',
+            UPLOAD_ERR_NO_TMP_DIR => 'Dossier temporaire manquant',
+            UPLOAD_ERR_CANT_WRITE => 'Échec écriture disque',
+            UPLOAD_ERR_EXTENSION => 'Extension PHP a arrêté l\'upload'
+        ];
+        $errorCode = $_FILES['image']['error'];
+        $debugLogs[] = "   • Message: " . ($errorMessages[$errorCode] ?? 'Erreur inconnue');
+    }
     echo json_encode(['success' => false, 'error' => 'Aucun fichier reçu', 'debug' => $debugLogs]);
     exit;
 }
 
 $file = $_FILES['image'];
+
+$debugLogs[] = "";
+$debugLogs[] = "📁 FICHIER REÇU:";
+$debugLogs[] = "   • Nom: {$file['name']}";
+$debugLogs[] = "   • Type: {$file['type']}";
+$debugLogs[] = "   • Taille: " . round($file['size'] / 1024, 2) . " KB";
+$debugLogs[] = "   • Tmp: {$file['tmp_name']}";
 
 // Vérifier la taille (10 MB max)
 if ($file['size'] > 10 * 1024 * 1024) {
@@ -48,11 +79,12 @@ $mime_type = finfo_file($finfo, $file['tmp_name']);
 finfo_close($finfo);
 
 if (!in_array($mime_type, $allowed_types)) {
+    $debugLogs[] = "❌ Type MIME non autorisé: $mime_type";
     echo json_encode(['success' => false, 'error' => 'Type de fichier non autorisé', 'debug' => $debugLogs]);
     exit;
 }
 
-$debugLogs[] = "✅ Fichier valide";
+$debugLogs[] = "✅ Fichier valide (MIME: $mime_type)";
 
 // Créer les dossiers
 $user_folder = "user_" . $userId;
@@ -72,24 +104,43 @@ $prefix = match($mode) {
     default => 'Modifiee'
 };
 
-$debugLogs[] = "🏷️ Préfixe: $prefix";
+$debugLogs[] = "";
+$debugLogs[] = "🏷️ PRÉFIXE DÉTERMINÉ: '$prefix'";
 
-// Récupérer le nom original
+// ⭐⭐⭐ RÉCUPÉRATION DU NOM ORIGINAL ⭐⭐⭐
 $originalName = 'Image';
+
+$debugLogs[] = "";
+$debugLogs[] = "🔍 RECHERCHE DU NOM ORIGINAL:";
+
 if (isset($_POST['original_image_id']) && !empty($_POST['original_image_id'])) {
     $origId = (int)$_POST['original_image_id'];
-    $debugLogs[] = "🔍 ID image originale: $origId";
+    $debugLogs[] = "   • original_image_id reçu: $origId";
     
-    $stmt = $pdo->prepare("SELECT original_filename FROM images WHERE id = ? AND user_id = ?");
+    $stmt = $pdo->prepare("SELECT id, original_filename, filename FROM images WHERE id = ? AND user_id = ?");
     $stmt->execute([$origId, $userId]);
     $origImage = $stmt->fetch();
     
     if ($origImage) {
+        $debugLogs[] = "   ✅ Image trouvée en BDD:";
+        $debugLogs[] = "      - ID: {$origImage['id']}";
+        $debugLogs[] = "      - original_filename: '{$origImage['original_filename']}'";
+        $debugLogs[] = "      - filename: '{$origImage['filename']}'";
+        
+        // Récupérer le nom et enlever l'extension
         $originalName = pathinfo($origImage['original_filename'], PATHINFO_FILENAME);
+        
         // Retirer les préfixes existants
         $originalName = preg_replace('/^(Editee|Recadree|Designee|Modifiee)_/', '', $originalName);
-        $debugLogs[] = "✅ Nom récupéré: '$originalName'";
+        
+        $debugLogs[] = "   ✅ Nom récupéré et nettoyé: '$originalName'";
+    } else {
+        $debugLogs[] = "   ⚠️ Aucune image trouvée avec cet ID pour user_id=$userId";
+        $debugLogs[] = "   → Utilisation du nom par défaut: '$originalName'";
     }
+} else {
+    $debugLogs[] = "   ⚠️ Aucun original_image_id fourni dans POST";
+    $debugLogs[] = "   → Utilisation du nom par défaut: '$originalName'";
 }
 
 // Nettoyer le nom
@@ -100,14 +151,16 @@ $cleanName = trim($cleanName, '_');
 // Construire le nom de base
 $baseName = $prefix . '_' . $cleanName;
 
-$debugLogs[] = "📝 Nom de base: '$baseName'";
+$debugLogs[] = "";
+$debugLogs[] = "📝 NOM DE BASE CONSTRUIT: '$baseName'";
 
 // ⭐⭐⭐ VÉRIFICATION DES DOUBLONS ⭐⭐⭐
 $finalName = $baseName;
 $counter = 1;
 $maxAttempts = 100;
 
-$debugLogs[] = "🔄 Vérification des doublons dans 'original_filename'...";
+$debugLogs[] = "";
+$debugLogs[] = "🔄 VÉRIFICATION DES DOUBLONS dans 'original_filename':";
 
 // BOUCLE DE VÉRIFICATION
 while ($counter <= $maxAttempts) {
@@ -123,14 +176,14 @@ while ($counter <= $maxAttempts) {
     $result = $stmt->fetch();
     $count = $result['count'];
     
-    $debugLogs[] = "   🔎 Test '$finalName': $count résultat(s)";
+    $debugLogs[] = "   🔎 Tentative #$counter - Test '$finalName': $count résultat(s) en BDD";
     
     if ($count == 0) {
         // Nom disponible !
         if ($counter > 1) {
-            $debugLogs[] = "✅ NOM UNIQUE TROUVÉ après $counter tentatives: '$finalName'";
+            $debugLogs[] = "   ✅ NOM UNIQUE TROUVÉ après $counter tentatives: '$finalName'";
         } else {
-            $debugLogs[] = "✅ NOM UNIQUE dès la 1ère tentative: '$finalName'";
+            $debugLogs[] = "   ✅ NOM UNIQUE dès la 1ère tentative: '$finalName'";
         }
         break;
     }
@@ -138,10 +191,11 @@ while ($counter <= $maxAttempts) {
     // Nom occupé, essayer avec suffixe
     $counter++;
     $finalName = $baseName . '_' . $counter;
-    $debugLogs[] = "   ↪️ Nom occupé, essai suivant: '$finalName'";
+    $debugLogs[] = "   ↪️ Nom occupé, prochain essai: '$finalName'";
 }
 
 if ($counter > $maxAttempts) {
+    $debugLogs[] = "❌ ÉCHEC: Plus de $maxAttempts tentatives";
     echo json_encode([
         'success' => false,
         'error' => 'Trop de fichiers similaires',
@@ -156,9 +210,10 @@ $timestamp = date('YmdHis') . '_' . uniqid();
 $physical_filename = $finalName . '_' . $timestamp . '.jpg';
 
 $debugLogs[] = "";
-$debugLogs[] = "📋 RÉSUMÉ DES NOMS:";
-$debugLogs[] = "   • original_filename (BDD): '$original_filename_bdd'";
+$debugLogs[] = "📋 === RÉSUMÉ DES NOMS FINAUX ===";
+$debugLogs[] = "   • original_filename (BDD, UNIQUE): '$original_filename_bdd'";
 $debugLogs[] = "   • filename (physique): '$physical_filename'";
+$debugLogs[] = "   • Suffixe ajouté: " . ($counter > 1 ? "OUI (_$counter)" : "NON");
 $debugLogs[] = "";
 
 $filepath = $user_dir . '/' . $physical_filename;
@@ -166,23 +221,29 @@ $thumb_path = $thumb_dir . '/' . $physical_filename;
 
 // Déplacer le fichier
 if (!move_uploaded_file($file['tmp_name'], $filepath)) {
+    $debugLogs[] = "❌ Échec move_uploaded_file";
+    $debugLogs[] = "   Source: {$file['tmp_name']}";
+    $debugLogs[] = "   Dest: $filepath";
     echo json_encode(['success' => false, 'error' => 'Erreur déplacement fichier', 'debug' => $debugLogs]);
     exit;
 }
 
-$debugLogs[] = "✅ Fichier déplacé";
+$debugLogs[] = "✅ Fichier déplacé vers: $filepath";
 
 // Dimensions
 $imageInfo = getimagesize($filepath);
 if ($imageInfo === false) {
     unlink($filepath);
+    $debugLogs[] = "❌ getimagesize() a échoué";
     echo json_encode(['success' => false, 'error' => 'Fichier invalide', 'debug' => $debugLogs]);
     exit;
 }
 list($width, $height) = $imageInfo;
+$debugLogs[] = "📐 Dimensions: {$width}x{$height} px";
 
 // Miniature
 $thumbSuccess = generateThumbnail($filepath, $thumb_path, 300, 300);
+$debugLogs[] = ($thumbSuccess ? "✅" : "⚠️") . " Miniature " . ($thumbSuccess ? "créée" : "échec");
 
 // Chemins BDD
 $db_filepath = 'uploads/' . $user_folder . '/' . $physical_filename;
@@ -190,12 +251,18 @@ $db_thumb_path = $thumbSuccess ? 'uploads/thumbnails/' . $user_folder . '/' . $p
 
 // ⭐⭐⭐ INSERTION EN BDD ⭐⭐⭐
 try {
-    $debugLogs[] = "💾 INSERTION EN BDD...";
+    $debugLogs[] = "";
+    $debugLogs[] = "💾 === INSERTION EN BASE DE DONNÉES ===";
     $debugLogs[] = "   VALUES à insérer:";
     $debugLogs[] = "   • user_id: $userId";
     $debugLogs[] = "   • filename: '$physical_filename'";
-    $debugLogs[] = "   • original_filename: '$original_filename_bdd' ← DOIT ÊTRE UNIQUE !";
+    $debugLogs[] = "   • original_filename: '$original_filename_bdd' ⭐ DOIT ÊTRE UNIQUE !";
     $debugLogs[] = "   • file_path: '$db_filepath'";
+    $debugLogs[] = "   • thumbnail_path: " . ($db_thumb_path ? "'$db_thumb_path'" : "NULL");
+    $debugLogs[] = "   • file_size: " . filesize($filepath);
+    $debugLogs[] = "   • width: $width";
+    $debugLogs[] = "   • height: $height";
+    $debugLogs[] = "   • mime_type: 'image/jpeg'";
     
     $stmt = $pdo->prepare("
         INSERT INTO images (
@@ -232,7 +299,15 @@ try {
     $stmt = $pdo->prepare("SELECT original_filename FROM images WHERE id = ?");
     $stmt->execute([$imageId]);
     $inserted = $stmt->fetch();
-    $debugLogs[] = "🔍 Vérification: original_filename en BDD = '{$inserted['original_filename']}'";
+    $debugLogs[] = "🔍 Vérification post-insertion: original_filename = '{$inserted['original_filename']}'";
+    
+    if ($inserted['original_filename'] !== $original_filename_bdd) {
+        $debugLogs[] = "⚠️ ATTENTION: Le nom en BDD ne correspond pas !";
+        $debugLogs[] = "   Attendu: '$original_filename_bdd'";
+        $debugLogs[] = "   Obtenu: '{$inserted['original_filename']}'";
+    } else {
+        $debugLogs[] = "✅ Nom correctement enregistré en BDD";
+    }
     
     // Username pour URL
     $stmt = $pdo->prepare("SELECT username FROM users WHERE id = ?");
@@ -243,10 +318,11 @@ try {
     
     $message = '✅ Image sauvegardée avec succès !';
     if ($counter > 1) {
-        $message = "✅ Image sauvegardée sous le nom '$original_filename_bdd'";
+        $message = "✅ Image sauvegardée sous le nom '$original_filename_bdd' (suffixe _$counter ajouté car nom déjà utilisé)";
     }
     
-    $debugLogs[] = "=== FIN (SUCCÈS) ===";
+    $debugLogs[] = "";
+    $debugLogs[] = "=== ✅ SUCCÈS COMPLET ===";
     
     echo json_encode([
         'success' => true,
@@ -257,14 +333,17 @@ try {
         'file_path' => $db_filepath,
         'had_suffix' => $counter > 1,
         'attempts' => $counter,
-        'debug' => $debugLogs
+        'debug' => $debugLogs  // ⭐ TOUS LES LOGS SONT ENVOYÉS !
     ]);
     
 } catch (PDOException $e) {
+    // En cas d'erreur, supprimer le fichier
     unlink($filepath);
     if (file_exists($thumb_path)) unlink($thumb_path);
     
+    $debugLogs[] = "";
     $debugLogs[] = "❌ ERREUR PDO: " . $e->getMessage();
+    $debugLogs[] = "Code: " . $e->getCode();
     
     echo json_encode([
         'success' => false,
