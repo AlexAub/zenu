@@ -93,7 +93,7 @@
                     placeholder="0"
                 >
                 
-                <!-- Affichage de la valeur -->
+                <!-- ✅ CORRECTION ICI : Affichage de la valeur avec style complet -->
                 <span class="control-value" id="rotateValue" style="min-width: 45px; text-align: center; background: #667eea; color: white; padding: 8px 12px; border-radius: 6px; font-weight: 600;">0°</span>
             </div>
             
@@ -175,21 +175,7 @@
                 <button class="btn btn-secondary" onclick="setTextAlign('right')" title="Aligner à droite">▶</button>
             </div>
             
-            <!-- Contour -->
-            <div style="display: grid; grid-template-columns: 1fr 80px; gap: 8px; margin-bottom: 8px;">
-                <input type="color" id="textStrokeColor" value="#000000" onchange="updateSelectedTextStroke()" title="Couleur du contour">
-                <input type="number" id="textStrokeWidth" value="1" min="0" max="10" onchange="updateSelectedTextStroke()" placeholder="Épaisseur" style="padding: 8px;">
-            </div>
-            
-            <!-- Ombre -->
-            <div style="margin-bottom: 8px;">
-                <label style="display: flex; align-items: center; font-size: 13px;">
-                    <input type="checkbox" id="textShadow" onchange="updateSelectedTextShadow()" style="margin-right: 5px;">
-                    Ajouter une ombre
-                </label>
-            </div>
-            
-            <button class="btn btn-primary btn-block" onclick="addText()">
+            <button class="btn btn-primary" onclick="addText()" style="width: 100%; margin-bottom: 8px;">
                 ➕ Ajouter le texte
             </button>
         </div>
@@ -197,19 +183,14 @@
         <!-- FORMES -->
         <div class="tool-section">
             <label class="control-label">🔷 Formes</label>
-            <div class="shape-grid">
-                <button class="shape-btn" onclick="addShape('rect')" title="Rectangle">⬜</button>
-                <button class="shape-btn" onclick="addShape('circle')" title="Cercle">⚪</button>
-                <button class="shape-btn" onclick="addShape('triangle')" title="Triangle">🔺</button>
-                <button class="shape-btn" onclick="addShape('line')" title="Ligne">➖</button>
-                <button class="shape-btn" onclick="addShape('arrow')" title="Flèche">➡️</button>
-                <button class="shape-btn" onclick="addShape('star')" title="Étoile">⭐</button>
-                <button class="shape-btn" onclick="addShape('polygon')" title="Hexagone">⬡</button>
-                <button class="shape-btn" onclick="addShape('heart')" title="Cœur">❤️</button>
+            <div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; margin-bottom: 10px;">
+                <button class="btn btn-secondary" onclick="addShape('rect')">◼️ Rectangle</button>
+                <button class="btn btn-secondary" onclick="addShape('circle')">⭕ Cercle</button>
+                <button class="btn btn-secondary" onclick="addShape('triangle')">🔺 Triangle</button>
             </div>
             
-            <!-- Couleurs forme -->
-            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-top: 8px;">
+            <!-- Couleurs de remplissage et contour -->
+            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-bottom: 8px;">
                 <div>
                     <label style="font-size: 12px; display: block; margin-bottom: 3px;">Remplissage</label>
                     <input type="color" id="shapeFillColor" value="#ff0000" style="width: 100%; height: 35px;">
@@ -251,47 +232,29 @@
         
         <!-- MODIFICATIONS -->
         <div class="tool-section" id="modifyControls" style="display: none;">
-            <label class="control-label">🎛️ Modifier la sélection</label>
+            <label class="control-label">🎛️ Modifier l'élément</label>
             
-            <!-- Opacité de l'objet sélectionné -->
-            <div style="margin-bottom: 10px;">
-                <label style="font-size: 12px; display: block; margin-bottom: 3px;">Opacité</label>
-                <input type="range" id="objectOpacity" min="0" max="100" value="100" onchange="updateSelectedObjectOpacity()" style="width: 100%;">
-            </div>
-            
-            <!-- Rotation -->
-            <div style="margin-bottom: 10px;">
-                <label style="font-size: 12px; display: block; margin-bottom: 3px;">Rotation (degrés)</label>
-                <input type="number" id="objectRotation" value="0" min="-180" max="180" onchange="updateSelectedObjectRotation()" style="width: 100%; padding: 6px;">
-            </div>
-            
-            <!-- Ordre des calques -->
-            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-bottom: 10px;">
-                <button class="btn btn-secondary" onclick="bringToFront()">⬆️ Avant</button>
+            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-bottom: 8px;">
+                <button class="btn btn-secondary" onclick="bringToFront()">⬆️ Devant</button>
                 <button class="btn btn-secondary" onclick="sendToBack()">⬇️ Arrière</button>
             </div>
             
-            <!-- Flip -->
-            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 8px;">
-                <button class="btn btn-secondary" onclick="flipObjectH()">↔️ Flip H</button>
-                <button class="btn btn-secondary" onclick="flipObjectV()">↕️ Flip V</button>
+            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-bottom: 8px;">
+                <button class="btn btn-secondary" onclick="duplicateObject()">📋 Dupliquer</button>
+                <button class="btn btn-danger" onclick="deleteObject()">🗑️ Supprimer</button>
             </div>
+            
+            <!-- Opacité de l'objet -->
+            <label style="font-size: 12px; display: block; margin-top: 10px; margin-bottom: 5px;">Opacité</label>
+            <input type="range" id="objectOpacity" min="0" max="100" value="100" onchange="updateObjectOpacity()" style="width: 100%;">
         </div>
         
-        <!-- ACTIONS -->
-        <div class="tool-section">
-            <label class="control-label">🎨 Actions</label>
-            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 8px;">
-                <button class="btn btn-secondary" onclick="duplicateSelected()">📋 Dupliquer</button>
-                <button class="btn btn-secondary" onclick="deleteSelected()">🗑️ Supprimer</button>
-            </div>
-            <button class="btn btn-secondary btn-block" onclick="clearCanvas()" style="margin-top: 8px;">
-                🧹 Tout effacer
-            </button>
-        </div>
-        
-        <button class="btn btn-primary btn-block" onclick="saveImage('pro')">
+        <button class="btn btn-primary btn-block" onclick="saveImage('pro')" style="margin-top: 15px;">
             💾 Sauvegarder
+        </button>
+        
+        <button class="btn btn-secondary btn-block" onclick="clearAllObjects()" style="margin-top: 10px;">
+            🗑️ Tout effacer
         </button>
     </div>
 </div>
