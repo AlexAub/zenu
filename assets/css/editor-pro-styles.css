@@ -1,5 +1,7 @@
 /**
- * STYLES POUR LE MODE PRO - AMÉLIORATION DE LA MISE EN PAGE
+ * STYLES POUR LE MODE PRO - CORRECTIONS V4
+ * ✅ Correction du débordement du champ de texte
+ * ✅ Amélioration de la mise en page des contrôles
  */
 
 /* ===== SECTIONS GÉNÉRALES ===== */
@@ -9,6 +11,7 @@
     padding: 15px;
     margin-bottom: 15px;
     border: 1px solid #e9ecef;
+    box-sizing: border-box; /* ✅ Important pour éviter les débordements */
 }
 
 .control-label {
@@ -21,13 +24,48 @@
     color: #333;
 }
 
+/* ===== CORRECTION: CHAMPS DE TEXTE ===== */
+input[type="text"],
+input[type="number"],
+select,
+textarea {
+    width: 100%;
+    max-width: 100%; /* ✅ Éviter le débordement */
+    box-sizing: border-box; /* ✅ Inclure padding et border dans la largeur */
+    padding: 8px;
+    border: 2px solid #ddd;
+    border-radius: 6px;
+    font-size: 14px;
+    font-family: inherit;
+}
+
+/* ✅ Style spécifique pour le champ de texte principal */
+#textInput {
+    width: 100%;
+    max-width: 100%;
+    box-sizing: border-box;
+    padding: 10px;
+    border: 2px solid #ddd;
+    border-radius: 6px;
+    margin-bottom: 8px;
+    font-size: 14px;
+    resize: none; /* Empêcher le redimensionnement manuel */
+}
+
+#textInput:focus {
+    border-color: #667eea;
+    outline: none;
+    box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
+}
+
 /* ===== GRILLE DE FORMES ===== */
 .shape-grid {
     display: grid;
     grid-template-columns: repeat(4, 1fr);
     gap: 6px;
     margin-bottom: 12px;
-    width: 100%; /* Forcer à 100% de la largeur du conteneur */
+    width: 100%;
+    box-sizing: border-box;
 }
 
 .shape-btn {
@@ -41,8 +79,9 @@
     display: flex;
     align-items: center;
     justify-content: center;
-    aspect-ratio: 1; /* Garder les boutons carrés */
-    min-width: 0; /* Permettre au bouton de rétrécir si nécessaire */
+    aspect-ratio: 1;
+    min-width: 0;
+    box-sizing: border-box;
 }
 
 .shape-btn:hover {
@@ -65,6 +104,7 @@
     cursor: pointer;
     transition: all 0.2s;
     font-size: 14px;
+    box-sizing: border-box;
 }
 
 .btn-primary {
@@ -91,114 +131,30 @@
 .btn-block {
     width: 100%;
     display: block;
+    box-sizing: border-box;
 }
 
-/* ===== INPUTS ET CONTRÔLES ===== */
-input[type="text"],
-input[type="number"],
-select {
+/* ===== INPUTS DE COULEUR ===== */
+input[type="color"] {
     width: 100%;
-    padding: 10px;
-    border: 2px solid #e0e0e0;
-    border-radius: 8px;
-    font-size: 14px;
-    transition: border-color 0.2s;
+    height: 40px;
+    border: 2px solid #ddd;
+    border-radius: 6px;
+    cursor: pointer;
+    box-sizing: border-box;
 }
 
-input[type="text"]:focus,
-input[type="number"]:focus,
-select:focus {
-    outline: none;
+input[type="color"]:hover {
     border-color: #667eea;
 }
 
-input[type="color"] {
-    width: 100%;
-    height: 45px;
-    border: 2px solid #e0e0e0;
-    border-radius: 8px;
-    cursor: pointer;
-}
-
+/* ===== SLIDERS ===== */
 input[type="range"] {
     width: 100%;
-    height: 8px;
-    -webkit-appearance: none;
-    appearance: none;
-    background: #e0e0e0;
-    border-radius: 4px;
-    outline: none;
+    box-sizing: border-box;
 }
 
-input[type="range"]::-webkit-slider-thumb {
-    -webkit-appearance: none;
-    appearance: none;
-    width: 20px;
-    height: 20px;
-    border-radius: 50%;
-    background: #667eea;
-    cursor: pointer;
-    box-shadow: 0 2px 8px rgba(102, 126, 234, 0.4);
-}
-
-input[type="range"]::-moz-range-thumb {
-    width: 20px;
-    height: 20px;
-    border-radius: 50%;
-    background: #667eea;
-    cursor: pointer;
-    border: none;
-}
-
-input[type="checkbox"] {
-    width: 18px;
-    height: 18px;
-    cursor: pointer;
-}
-
-/* ===== LABELS ET TEXTES ===== */
-label {
-    font-size: 13px;
-    color: #666;
-    font-weight: 500;
-}
-
-/* ===== GRILLES SPÉCIFIQUES ===== */
-.color-grid {
-    display: grid;
-    grid-template-columns: 1fr 1fr;
-    gap: 10px;
-    margin: 10px 0;
-}
-
-.color-grid > div {
-    display: flex;
-    flex-direction: column;
-    gap: 5px;
-}
-
-.color-grid label {
-    font-size: 12px;
-    font-weight: 600;
-    color: #555;
-}
-
-/* ===== INDICATEUR DE SÉLECTION ===== */
-#selectionIndicator {
-    background: #d4edda;
-    border: 2px solid #28a745;
-    padding: 12px;
-    border-radius: 8px;
-    margin-bottom: 15px;
-    font-size: 13px;
-    display: none;
-}
-
-#selectionIndicator strong {
-    color: #155724;
-}
-
-/* ===== ESPACEMENTS ET MARGES ===== */
+/* ===== MARGES ===== */
 .mb-1 { margin-bottom: 8px; }
 .mb-2 { margin-bottom: 12px; }
 .mb-3 { margin-bottom: 16px; }
@@ -255,6 +211,7 @@ label {
     padding: 8px;
     font-weight: 700;
     font-size: 16px;
+    box-sizing: border-box;
 }
 
 /* ===== BOUTONS D'ALIGNEMENT ===== */
@@ -268,6 +225,26 @@ label {
 .align-buttons .btn-secondary {
     padding: 8px;
     font-size: 18px;
+    box-sizing: border-box;
+}
+
+/* ===== GRILLES DE CONTRÔLE ===== */
+.control-grid-2 {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 8px;
+    margin-bottom: 8px;
+}
+
+.control-grid-2 > div {
+    box-sizing: border-box;
+}
+
+.control-grid-2 label {
+    font-size: 12px;
+    display: block;
+    margin-bottom: 3px;
+    color: #555;
 }
 
 /* ===== TOOLTIPS ===== */
@@ -289,6 +266,7 @@ label {
     white-space: nowrap;
     z-index: 1000;
     pointer-events: none;
+    margin-bottom: 5px;
 }
 
 [title]:hover::before {
@@ -301,4 +279,48 @@ label {
     border-top-color: #333;
     z-index: 1000;
     pointer-events: none;
+}
+
+/* ===== AMÉLIORATION DE LA SIDEBAR ===== */
+.editor-sidebar {
+    overflow-y: auto;
+    overflow-x: hidden; /* ✅ Éviter le débordement horizontal */
+    max-height: calc(100vh - 200px);
+    padding: 20px;
+    box-sizing: border-box;
+}
+
+/* ===== SCROLLBAR PERSONNALISÉE ===== */
+.editor-sidebar::-webkit-scrollbar {
+    width: 8px;
+}
+
+.editor-sidebar::-webkit-scrollbar-track {
+    background: #f1f1f1;
+    border-radius: 10px;
+}
+
+.editor-sidebar::-webkit-scrollbar-thumb {
+    background: #888;
+    border-radius: 10px;
+}
+
+.editor-sidebar::-webkit-scrollbar-thumb:hover {
+    background: #555;
+}
+
+/* ===== INDICATEUR DE SÉLECTION ===== */
+#selectionIndicator {
+    background: #d4edda;
+    border: 2px solid #28a745;
+    padding: 12px;
+    border-radius: 8px;
+    margin-bottom: 15px;
+    font-size: 13px;
+    box-sizing: border-box;
+}
+
+#selectionIndicator strong {
+    display: block;
+    margin-bottom: 5px;
 }

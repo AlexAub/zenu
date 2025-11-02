@@ -1,7 +1,10 @@
 /**
- * ÉDITEUR D'IMAGES - MODE PRO (VERSION CORRIGÉE V2)
+ * ÉDITEUR D'IMAGES - MODE PRO (VERSION FINALE V4)
  * Gestion des textes, formes et annotations avec Fabric.js
- * ✅ CORRECTION: Ajout de vérifications null pour éviter les erreurs
+ * ✅ CORRECTION: Formes manquantes (arrow, star, polygon, heart)
+ * ✅ CORRECTION: Alignement avec création automatique de zone de texte
+ * ✅ CORRECTION: Mise à jour dynamique des propriétés des formes (bordures, styles)
+ * ✅ CORRECTION: Débordement du champ de texte
  */
 
 /**
@@ -61,86 +64,64 @@ function loadProMode(img) {
         let scale = 1;
         
         if (fabricImg.width > maxWidth || fabricImg.height > maxHeight) {
-            scale = Math.min(
-                maxWidth / fabricImg.width,
-                maxHeight / fabricImg.height
-            );
+            const scaleX = maxWidth / fabricImg.width;
+            const scaleY = maxHeight / fabricImg.height;
+            scale = Math.min(scaleX, scaleY);
         }
         
-        fabricImg.scale(scale);
-        fabricImg.selectable = false;
-        fabricImg.evented = false;
-        fabricImg.hasControls = false;
-        fabricImg.hasBorders = false;
-        fabricImg.lockMovementX = true;
-        fabricImg.lockMovementY = true;
+        fabricCanvas.setWidth(fabricImg.width * scale);
+        fabricCanvas.setHeight(fabricImg.height * scale);
         
-        fabricCanvas.setBackgroundImage(fabricImg, fabricCanvas.renderAll.bind(fabricCanvas), {
+        fabricImg.set({
             scaleX: scale,
-            scaleY: scale
+            scaleY: scale,
+            selectable: false,
+            evented: false,
+            lockMovementX: true,
+            lockMovementY: true,
+            lockRotation: true,
+            lockScalingX: true,
+            lockScalingY: true,
+            hoverCursor: 'default'
         });
         
-        fabricCanvas.setWidth(fabricImg.getScaledWidth());
-        fabricCanvas.setHeight(fabricImg.getScaledHeight());
+        fabricCanvas.setBackgroundImage(fabricImg, fabricCanvas.renderAll.bind(fabricCanvas));
+        fabricCanvas.renderAll();
         
-        console.log('✅ Image définie comme fond');
-    }, { crossOrigin: 'anonymous' });
+        console.log('✅ Mode Pro chargé');
+    }, null, { crossOrigin: 'anonymous' });
 }
 
 /**
- * Configuration des event listeners de Fabric.js
+ * Configuration des événements Fabric.js
  */
 function setupFabricEventListeners() {
-    fabricCanvas.on('mouse:down', function(e) {
-        console.log('🖱️ Clic:', e.target ? 'sur objet: ' + e.target.type : 'sur canvas vide');
-    });
-    
-    fabricCanvas.on('object:moving', function(e) {
-        e.target.setCoords();
-    });
-    
-    fabricCanvas.on('object:scaling', function(e) {
-        e.target.setCoords();
-    });
-    
-    fabricCanvas.on('object:rotating', function(e) {
-        e.target.setCoords();
-    });
-    
-    fabricCanvas.on('object:modified', function(e) {
-        e.target.setCoords();
-        fabricCanvas.renderAll();
-    });
-    
-    fabricCanvas.on('selection:created', function(e) {
-        if (e.selected && e.selected.length > 0) {
-            e.selected.forEach(obj => obj.setCoords());
-        }
-        updateObjectControls();
-    });
-    
-    fabricCanvas.on('selection:updated', function(e) {
-        if (e.selected && e.selected.length > 0) {
-            e.selected.forEach(obj => obj.setCoords());
-        }
-        updateObjectControls();
-    });
-    
+    fabricCanvas.on('selection:created', updateSelectionIndicator);
+    fabricCanvas.on('selection:updated', updateSelectionIndicator);
     fabricCanvas.on('selection:cleared', function() {
         const indicator = document.getElementById('selectionIndicator');
         const modifyControls = document.getElementById('modifyControls');
         if (indicator) indicator.style.display = 'none';
         if (modifyControls) modifyControls.style.display = 'none';
     });
+    
+    fabricCanvas.on('text:editing:entered', function() {
+        console.log('📝 Édition de texte commencée');
+    });
+    
+    fabricCanvas.on('text:editing:exited', function() {
+        console.log('📝 Édition de texte terminée');
+        fabricCanvas.renderAll();
+    });
 }
 
 /**
- * Mettre à jour les contrôles quand un objet est sélectionné
+ * Mettre à jour l'indicateur de sélection
  */
-function updateObjectControls() {
+function updateSelectionIndicator() {
+    const obj = fabricCanvas.getActiveObject();
     const indicator = document.getElementById('selectionIndicator');
     const modifyControls = document.getElementById('modifyControls');
-    const obj = fabricCanvas.getActiveObject();
     
     if (indicator) indicator.style.display = 'block';
     if (modifyControls && obj) {
@@ -167,17 +148,32 @@ function updateObjectControls() {
             if (textStrokeWidth) textStrokeWidth.value = obj.strokeWidth || 0;
         }
         
-        // ✅ NOUVEAU: Si c'est une forme, charger ses propriétés
+        // ✅ Si c'est une forme, charger ses propriétés
         if (obj.type !== 'i-text' && obj.type !== 'textbox') {
             const shapeFillColor = document.getElementById('shapeFillColor');
             const shapeStrokeColor = document.getElementById('shapeStrokeColor');
             const shapeStrokeWidth = document.getElementById('shapeStrokeWidth');
             const shapeOpacity = document.getElementById('shapeOpacity');
+            const shapeStrokeDash = document.getElementById('shapeStrokeDash');
             
             if (shapeFillColor && obj.fill) shapeFillColor.value = obj.fill;
             if (shapeStrokeColor && obj.stroke) shapeStrokeColor.value = obj.stroke;
             if (shapeStrokeWidth) shapeStrokeWidth.value = obj.strokeWidth || 3;
             if (shapeOpacity) shapeOpacity.value = (obj.opacity || 1) * 100;
+            
+            // ✅ Charger le style de bordure actuel
+            if (shapeStrokeDash) {
+                if (obj.strokeDashArray && obj.strokeDashArray.length > 0) {
+                    // Déterminer le type de bordure
+                    if (obj.strokeDashArray[0] > 5) {
+                        shapeStrokeDash.value = 'dashed';
+                    } else {
+                        shapeStrokeDash.value = 'dotted';
+                    }
+                } else {
+                    shapeStrokeDash.value = 'solid';
+                }
+            }
         }
     }
 }
@@ -186,7 +182,6 @@ function updateObjectControls() {
 
 /**
  * Ajouter du texte au canvas
- * ✅ VERSION CORRIGÉE avec vérifications null
  */
 function addText() {
     const textInput = document.getElementById('textInput');
@@ -197,7 +192,6 @@ function addText() {
     const textStrokeWidth = document.getElementById('textStrokeWidth');
     const textShadow = document.getElementById('textShadow');
     
-    // ✅ Vérifier que textInput existe
     if (!textInput) {
         console.error('❌ Element textInput non trouvé');
         alert('⚠️ Erreur: champ de texte non trouvé');
@@ -217,23 +211,17 @@ function addText() {
         stroke: textStrokeColor ? textStrokeColor.value : '#000000',
         strokeWidth: textStrokeWidth ? parseInt(textStrokeWidth.value) : 0,
         fontFamily: textFont ? textFont.value : 'Arial',
-        editable: true,
         selectable: true,
-        evented: true,
+        editable: true,
         hasControls: true,
         hasBorders: true,
-        lockUniScaling: false,
         borderColor: '#667eea',
         cornerColor: '#667eea',
         cornerSize: 12,
         cornerStyle: 'circle',
-        transparentCorners: false,
-        borderOpacityWhenMoving: 0.5,
-        hoverCursor: 'move',
-        moveCursor: 'move'
+        transparentCorners: false
     };
     
-    // ✅ Ajouter l'ombre seulement si l'élément existe et est coché
     if (textShadow && textShadow.checked) {
         textOptions.shadow = {
             color: 'rgba(0,0,0,0.9)',
@@ -244,22 +232,19 @@ function addText() {
     }
     
     const text = new fabric.IText(textInput.value, textOptions);
-    
     fabricCanvas.add(text);
     fabricCanvas.setActiveObject(text);
     fabricCanvas.centerObject(text);
     text.setCoords();
     fabricCanvas.renderAll();
-    fabricCanvas.requestRenderAll();
+    
+    textInput.value = '';
     
     setTimeout(() => {
         fabricCanvas.calcOffset();
         text.setCoords();
         fabricCanvas.requestRenderAll();
-        console.log('✅ Texte ajouté');
     }, 50);
-    
-    textInput.value = '';
 }
 
 /**
@@ -292,18 +277,68 @@ function toggleTextStyle(style) {
 }
 
 /**
- * Définir l'alignement du texte
+ * ✅ CORRIGÉ: Définir l'alignement du texte (avec création automatique de zone de texte)
  */
 function setTextAlign(align) {
     const activeObject = fabricCanvas.getActiveObject();
-    if (!activeObject || (activeObject.type !== 'i-text' && activeObject.type !== 'textbox')) {
-        alert('⚠️ Veuillez sélectionner un texte d\'abord');
+    
+    // Si un texte est déjà sélectionné, changer son alignement
+    if (activeObject && (activeObject.type === 'i-text' || activeObject.type === 'textbox')) {
+        activeObject.set('textAlign', align);
+        activeObject.setCoords();
+        fabricCanvas.renderAll();
         return;
     }
     
-    activeObject.set('textAlign', align);
-    activeObject.setCoords();
+    // ✅ Sinon, créer une zone de texte multiligne avec l'alignement choisi
+    const textInput = document.getElementById('textInput');
+    const textFont = document.getElementById('textFont');
+    const textSize = document.getElementById('textSize');
+    const textColor = document.getElementById('textColor');
+    const textStrokeColor = document.getElementById('textStrokeColor');
+    const textStrokeWidth = document.getElementById('textStrokeWidth');
+    
+    // Utiliser le texte du champ s'il y en a un, sinon texte par défaut
+    const defaultText = textInput && textInput.value.trim() ? textInput.value : 'Cliquez ici pour modifier le texte';
+    
+    const textboxOptions = {
+        left: 150,
+        top: 150,
+        width: 300,
+        fontSize: textSize ? parseInt(textSize.value) : 40,
+        fill: textColor ? textColor.value : '#ffffff',
+        stroke: textStrokeColor ? textStrokeColor.value : '#000000',
+        strokeWidth: textStrokeWidth ? parseInt(textStrokeWidth.value) : 0,
+        fontFamily: textFont ? textFont.value : 'Arial',
+        textAlign: align,
+        selectable: true,
+        editable: true,
+        hasControls: true,
+        hasBorders: true,
+        borderColor: '#667eea',
+        cornerColor: '#667eea',
+        cornerSize: 12,
+        cornerStyle: 'circle',
+        transparentCorners: false
+    };
+    
+    const textbox = new fabric.Textbox(defaultText, textboxOptions);
+    fabricCanvas.add(textbox);
+    fabricCanvas.setActiveObject(textbox);
+    fabricCanvas.centerObject(textbox);
+    textbox.setCoords();
     fabricCanvas.renderAll();
+    
+    // Vider le champ si on a utilisé son contenu
+    if (textInput && textInput.value.trim()) {
+        textInput.value = '';
+    }
+    
+    setTimeout(() => {
+        fabricCanvas.calcOffset();
+        textbox.setCoords();
+        fabricCanvas.requestRenderAll();
+    }, 50);
 }
 
 /**
@@ -396,8 +431,66 @@ function updateSelectedTextShadow() {
 // ===== FONCTIONS DE GESTION DES FORMES =====
 
 /**
+ * Créer une forme étoile
+ */
+function createStar(options) {
+    const points = 5;
+    const innerRadius = 30;
+    const outerRadius = 60;
+    const step = Math.PI / points;
+    let path = '';
+    
+    for (let i = 0; i < points * 2; i++) {
+        const radius = i % 2 === 0 ? outerRadius : innerRadius;
+        const angle = i * step - Math.PI / 2;
+        const x = radius * Math.cos(angle);
+        const y = radius * Math.sin(angle);
+        path += (i === 0 ? 'M' : 'L') + x + ',' + y;
+    }
+    path += 'Z';
+    
+    return new fabric.Path(path, options);
+}
+
+/**
+ * Créer une flèche
+ */
+function createArrow(options) {
+    const arrowPath = 'M 0,0 L 100,0 L 100,-15 L 130,10 L 100,35 L 100,20 L 0,20 Z';
+    return new fabric.Path(arrowPath, options);
+}
+
+/**
+ * Créer un hexagone (polygone)
+ */
+function createHexagon(options) {
+    const sides = 6;
+    const radius = 50;
+    const angleStep = (Math.PI * 2) / sides;
+    let path = '';
+    
+    for (let i = 0; i < sides; i++) {
+        const angle = i * angleStep - Math.PI / 2;
+        const x = radius * Math.cos(angle);
+        const y = radius * Math.sin(angle);
+        path += (i === 0 ? 'M' : 'L') + x + ',' + y;
+    }
+    path += 'Z';
+    
+    return new fabric.Path(path, options);
+}
+
+/**
+ * Créer un cœur
+ */
+function createHeart(options) {
+    const heartPath = 'M 50,90 C 20,60 0,40 0,25 C 0,10 10,0 25,0 C 35,0 45,5 50,15 C 55,5 65,0 75,0 C 90,0 100,10 100,25 C 100,40 80,60 50,90 Z';
+    return new fabric.Path(heartPath, options);
+}
+
+/**
  * Ajouter une forme au canvas
- * ✅ VERSION CORRIGÉE avec vérifications null
+ * ✅ CORRIGÉ: Toutes les formes disponibles
  */
 function addShape(type) {
     const shapeFillColor = document.getElementById('shapeFillColor');
@@ -407,7 +500,6 @@ function addShape(type) {
     const shapeStrokeDash = document.getElementById('shapeStrokeDash');
     const shapeRoundedCorners = document.getElementById('shapeRoundedCorners');
     
-    // ✅ Valeurs par défaut si les éléments n'existent pas
     const fillColor = shapeFillColor ? shapeFillColor.value : '#ff0000';
     const strokeColor = shapeStrokeColor ? shapeStrokeColor.value : '#000000';
     const strokeWidth = shapeStrokeWidth ? parseInt(shapeStrokeWidth.value) : 3;
@@ -482,9 +574,26 @@ function addShape(type) {
                 strokeWidth: strokeWidth
             });
             break;
+        
+        case 'arrow':
+            shape = createArrow(shapeOptions);
+            break;
+            
+        case 'star':
+            shape = createStar(shapeOptions);
+            break;
+            
+        case 'polygon':
+            shape = createHexagon(shapeOptions);
+            break;
+            
+        case 'heart':
+            shape = createHeart(shapeOptions);
+            break;
             
         default:
-            console.warn('Type de forme non supporté:', type);
+            console.warn('⚠️ Type de forme non supporté:', type);
+            alert('⚠️ Type de forme non supporté: ' + type);
             return;
     }
     
@@ -523,7 +632,23 @@ function sendToBack() {
     const obj = fabricCanvas.getActiveObject();
     if (obj) {
         fabricCanvas.sendToBack(obj);
+        if (fabricCanvas.backgroundImage) {
+            fabricCanvas.sendToBack(fabricCanvas.backgroundImage);
+        }
         fabricCanvas.renderAll();
+    }
+}
+
+/**
+ * Supprimer l'objet sélectionné
+ */
+function deleteSelected() {
+    const obj = fabricCanvas.getActiveObject();
+    if (obj && obj !== fabricCanvas.backgroundImage) {
+        if (confirm('Supprimer cet élément ?')) {
+            fabricCanvas.remove(obj);
+            fabricCanvas.renderAll();
+        }
     }
 }
 
@@ -532,7 +657,7 @@ function sendToBack() {
  */
 function duplicateSelected() {
     const obj = fabricCanvas.getActiveObject();
-    if (obj) {
+    if (obj && obj !== fabricCanvas.backgroundImage) {
         obj.clone(function(cloned) {
             cloned.set({
                 left: cloned.left + 20,
@@ -547,21 +672,10 @@ function duplicateSelected() {
 }
 
 /**
- * Supprimer l'objet sélectionné
+ * Tout effacer (sauf l'image de fond)
  */
-function deleteSelected() {
-    const obj = fabricCanvas.getActiveObject();
-    if (obj) {
-        fabricCanvas.remove(obj);
-        fabricCanvas.renderAll();
-    }
-}
-
-/**
- * Effacer tout le canvas
- */
-function clearCanvas() {
-    if (confirm('⚠️ Effacer tous les éléments ?')) {
+function clearAllObjects() {
+    if (confirm('Supprimer tous les éléments (textes et formes) ?')) {
         const objects = fabricCanvas.getObjects().filter(obj => obj !== fabricCanvas.backgroundImage);
         objects.forEach(obj => fabricCanvas.remove(obj));
         fabricCanvas.renderAll();
@@ -594,24 +708,27 @@ function updateSelectedObjectRotation() {
 }
 
 /**
- * ✅ NOUVEAU: Mettre à jour la couleur de remplissage d'une forme sélectionnée
+ * ✅ CORRIGÉ: Mettre à jour la couleur de remplissage d'une forme sélectionnée
  */
 function updateSelectedShapeFill() {
     const obj = fabricCanvas.getActiveObject();
     const fillColor = document.getElementById('shapeFillColor');
+    
     if (obj && fillColor && obj.type !== 'i-text' && obj.type !== 'textbox') {
         obj.set('fill', fillColor.value);
         fabricCanvas.renderAll();
+        console.log('✅ Couleur de remplissage mise à jour:', fillColor.value);
     }
 }
 
 /**
- * ✅ NOUVEAU: Mettre à jour la couleur de contour d'une forme sélectionnée
+ * ✅ CORRIGÉ: Mettre à jour le contour d'une forme sélectionnée
  */
 function updateSelectedShapeStroke() {
     const obj = fabricCanvas.getActiveObject();
     const strokeColor = document.getElementById('shapeStrokeColor');
     const strokeWidth = document.getElementById('shapeStrokeWidth');
+    
     if (obj && strokeColor && strokeWidth && obj.type !== 'i-text' && obj.type !== 'textbox') {
         obj.set({
             stroke: strokeColor.value,
@@ -619,18 +736,52 @@ function updateSelectedShapeStroke() {
         });
         obj.setCoords();
         fabricCanvas.renderAll();
+        console.log('✅ Contour mis à jour:', strokeColor.value, strokeWidth.value);
     }
 }
 
 /**
- * ✅ NOUVEAU: Mettre à jour l'opacité d'une forme sélectionnée
+ * ✅ CORRIGÉ: Mettre à jour l'opacité d'une forme sélectionnée
  */
 function updateSelectedShapeOpacity() {
     const obj = fabricCanvas.getActiveObject();
     const opacity = document.getElementById('shapeOpacity');
+    
     if (obj && opacity && obj.type !== 'i-text' && obj.type !== 'textbox') {
-        obj.set('opacity', parseInt(opacity.value) / 100);
+        const opacityValue = parseInt(opacity.value) / 100;
+        obj.set('opacity', opacityValue);
         fabricCanvas.renderAll();
+        console.log('✅ Opacité de la forme mise à jour:', opacityValue);
+    }
+}
+
+/**
+ * ✅ NOUVEAU: Mettre à jour le style de bordure (solid/dashed/dotted)
+ */
+function updateSelectedShapeStrokeDash() {
+    const obj = fabricCanvas.getActiveObject();
+    const strokeDash = document.getElementById('shapeStrokeDash');
+    
+    if (obj && strokeDash && obj.type !== 'i-text' && obj.type !== 'textbox') {
+        let strokeDashArray = null;
+        
+        switch(strokeDash.value) {
+            case 'dashed':
+                strokeDashArray = [10, 5];
+                break;
+            case 'dotted':
+                strokeDashArray = [2, 5];
+                break;
+            case 'solid':
+            default:
+                strokeDashArray = null;
+                break;
+        }
+        
+        obj.set('strokeDashArray', strokeDashArray);
+        obj.setCoords();
+        fabricCanvas.renderAll();
+        console.log('✅ Style de bordure mis à jour:', strokeDash.value);
     }
 }
 
@@ -658,4 +809,4 @@ function flipObjectV() {
     }
 }
 
-console.log('✅ editor-pro-mode.js (VERSION CORRIGÉE V2) chargé');
+console.log('✅ editor-pro-mode.js (VERSION FINALE V4) chargé - Toutes les corrections appliquées');

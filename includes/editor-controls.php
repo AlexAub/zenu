@@ -235,7 +235,7 @@
             <!-- Style de bordure -->
             <div style="margin-top: 8px;">
                 <label style="font-size: 12px; display: block; margin-bottom: 3px;">Style bordure</label>
-                <select id="shapeStrokeDash" style="width: 100%; padding: 6px; border: 1px solid #ddd; border-radius: 4px;">
+                <select id="shapeStrokeDash" onchange="updateSelectedShapeStrokeDash()" style="width: 100%; padding: 6px; border: 1px solid #ddd; border-radius: 4px;">
                     <option value="solid">Solide</option>
                     <option value="dashed">Pointillés</option>
                     <option value="dotted">Points</option>
