@@ -1,0 +1,304 @@
+/**
+ * STYLES POUR LE MODE PRO - AMÉLIORATION DE LA MISE EN PAGE
+ */
+
+/* ===== SECTIONS GÉNÉRALES ===== */
+.tool-section {
+    background: #f8f9fa;
+    border-radius: 12px;
+    padding: 15px;
+    margin-bottom: 15px;
+    border: 1px solid #e9ecef;
+}
+
+.control-label {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    font-weight: 600;
+    margin-bottom: 12px;
+    font-size: 15px;
+    color: #333;
+}
+
+/* ===== GRILLE DE FORMES ===== */
+.shape-grid {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 6px;
+    margin-bottom: 12px;
+    width: 100%; /* Forcer à 100% de la largeur du conteneur */
+}
+
+.shape-btn {
+    padding: 12px 8px;
+    background: white;
+    border: 2px solid #e0e0e0;
+    border-radius: 8px;
+    font-size: 20px;
+    cursor: pointer;
+    transition: all 0.2s;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    aspect-ratio: 1; /* Garder les boutons carrés */
+    min-width: 0; /* Permettre au bouton de rétrécir si nécessaire */
+}
+
+.shape-btn:hover {
+    background: #667eea;
+    border-color: #667eea;
+    transform: translateY(-2px);
+    box-shadow: 0 4px 12px rgba(102, 126, 234, 0.3);
+}
+
+.shape-btn:active {
+    transform: translateY(0);
+}
+
+/* ===== BOUTONS D'ACTIONS ===== */
+.btn {
+    padding: 10px 15px;
+    border: none;
+    border-radius: 8px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.2s;
+    font-size: 14px;
+}
+
+.btn-primary {
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    color: white;
+}
+
+.btn-primary:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 6px 20px rgba(102, 126, 234, 0.4);
+}
+
+.btn-secondary {
+    background: white;
+    color: #667eea;
+    border: 2px solid #667eea;
+}
+
+.btn-secondary:hover {
+    background: #667eea;
+    color: white;
+}
+
+.btn-block {
+    width: 100%;
+    display: block;
+}
+
+/* ===== INPUTS ET CONTRÔLES ===== */
+input[type="text"],
+input[type="number"],
+select {
+    width: 100%;
+    padding: 10px;
+    border: 2px solid #e0e0e0;
+    border-radius: 8px;
+    font-size: 14px;
+    transition: border-color 0.2s;
+}
+
+input[type="text"]:focus,
+input[type="number"]:focus,
+select:focus {
+    outline: none;
+    border-color: #667eea;
+}
+
+input[type="color"] {
+    width: 100%;
+    height: 45px;
+    border: 2px solid #e0e0e0;
+    border-radius: 8px;
+    cursor: pointer;
+}
+
+input[type="range"] {
+    width: 100%;
+    height: 8px;
+    -webkit-appearance: none;
+    appearance: none;
+    background: #e0e0e0;
+    border-radius: 4px;
+    outline: none;
+}
+
+input[type="range"]::-webkit-slider-thumb {
+    -webkit-appearance: none;
+    appearance: none;
+    width: 20px;
+    height: 20px;
+    border-radius: 50%;
+    background: #667eea;
+    cursor: pointer;
+    box-shadow: 0 2px 8px rgba(102, 126, 234, 0.4);
+}
+
+input[type="range"]::-moz-range-thumb {
+    width: 20px;
+    height: 20px;
+    border-radius: 50%;
+    background: #667eea;
+    cursor: pointer;
+    border: none;
+}
+
+input[type="checkbox"] {
+    width: 18px;
+    height: 18px;
+    cursor: pointer;
+}
+
+/* ===== LABELS ET TEXTES ===== */
+label {
+    font-size: 13px;
+    color: #666;
+    font-weight: 500;
+}
+
+/* ===== GRILLES SPÉCIFIQUES ===== */
+.color-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 10px;
+    margin: 10px 0;
+}
+
+.color-grid > div {
+    display: flex;
+    flex-direction: column;
+    gap: 5px;
+}
+
+.color-grid label {
+    font-size: 12px;
+    font-weight: 600;
+    color: #555;
+}
+
+/* ===== INDICATEUR DE SÉLECTION ===== */
+#selectionIndicator {
+    background: #d4edda;
+    border: 2px solid #28a745;
+    padding: 12px;
+    border-radius: 8px;
+    margin-bottom: 15px;
+    font-size: 13px;
+    display: none;
+}
+
+#selectionIndicator strong {
+    color: #155724;
+}
+
+/* ===== ESPACEMENTS ET MARGES ===== */
+.mb-1 { margin-bottom: 8px; }
+.mb-2 { margin-bottom: 12px; }
+.mb-3 { margin-bottom: 16px; }
+
+.mt-1 { margin-top: 8px; }
+.mt-2 { margin-top: 12px; }
+.mt-3 { margin-top: 16px; }
+
+/* ===== RESPONSIVE ===== */
+@media (max-width: 768px) {
+    .shape-grid {
+        grid-template-columns: repeat(3, 1fr);
+    }
+    
+    .color-grid {
+        grid-template-columns: 1fr;
+    }
+}
+
+/* ===== ANIMATIONS ===== */
+@keyframes fadeIn {
+    from {
+        opacity: 0;
+        transform: translateY(-10px);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+.tool-section {
+    animation: fadeIn 0.3s ease-out;
+}
+
+/* ===== AMÉLIORATION DES CONTRÔLES DE MODIFICATION ===== */
+#modifyControls {
+    display: none;
+}
+
+#modifyControls.active {
+    display: block;
+}
+
+/* ===== BOUTONS DE STYLE DE TEXTE ===== */
+.style-buttons {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 6px;
+    margin: 10px 0;
+}
+
+.style-buttons .btn-secondary {
+    padding: 8px;
+    font-weight: 700;
+    font-size: 16px;
+}
+
+/* ===== BOUTONS D'ALIGNEMENT ===== */
+.align-buttons {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 6px;
+    margin: 10px 0;
+}
+
+.align-buttons .btn-secondary {
+    padding: 8px;
+    font-size: 18px;
+}
+
+/* ===== TOOLTIPS ===== */
+[title] {
+    position: relative;
+}
+
+[title]:hover::after {
+    content: attr(title);
+    position: absolute;
+    bottom: 100%;
+    left: 50%;
+    transform: translateX(-50%);
+    background: #333;
+    color: white;
+    padding: 5px 10px;
+    border-radius: 4px;
+    font-size: 12px;
+    white-space: nowrap;
+    z-index: 1000;
+    pointer-events: none;
+}
+
+[title]:hover::before {
+    content: '';
+    position: absolute;
+    bottom: 100%;
+    left: 50%;
+    transform: translateX(-50%);
+    border: 5px solid transparent;
+    border-top-color: #333;
+    z-index: 1000;
+    pointer-events: none;
+}

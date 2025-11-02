@@ -36,6 +36,7 @@ require_once 'header.php';
     <!-- Styles de l'éditeur -->
     <link rel="stylesheet" href="assets/css/editor-styles.css">
 	<link rel="stylesheet" href="assets/css/editor-header-fix.css">
+	<link rel="stylesheet" href="assets/css/editor-pro-styles.css">
     
     <div class="editor-container">
         <!-- Sélecteur de mode -->
