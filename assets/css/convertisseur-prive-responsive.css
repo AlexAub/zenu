@@ -1,0 +1,214 @@
+/* ============================================
+   CORRECTIONS RESPONSIVE POUR CONVERTISSEUR-PRIVE.PHP
+   ============================================ */
+
+/* Amélioration des media queries existantes */
+@media (max-width: 1024px) {
+    .main-content {
+        grid-template-columns: 1fr !important;
+    }
+    
+    .left-panel {
+        border-right: none !important;
+        border-bottom: 1px solid #e0e0e0 !important;
+    }
+    
+    .features ul {
+        grid-template-columns: 1fr !important;
+    }
+    
+    .right-panel {
+        padding: 20px !important;
+    }
+}
+
+@media (max-width: 768px) {
+    /* Container principal */
+    .container {
+        border-radius: 0 !important;
+        margin: 0 !important;
+        box-shadow: none !important;
+    }
+    
+    body {
+        padding: 0 !important;
+        margin: 0 !important;
+    }
+    
+    /* Panels */
+    .left-panel, .right-panel {
+        padding: 15px !important;
+    }
+    
+    /* Zone d'upload */
+    .upload-zone {
+        padding: 30px 15px !important;
+    }
+    
+    .upload-icon {
+        font-size: 48px !important;
+    }
+    
+    .upload-zone h3 {
+        font-size: 18px !important;
+    }
+    
+    .upload-zone p {
+        font-size: 13px !important;
+    }
+    
+    /* Contrôles */
+    .control-group {
+        padding: 15px !important;
+        margin-bottom: 15px !important;
+    }
+    
+    .control-group label {
+        font-size: 13px !important;
+    }
+    
+    /* Boutons */
+    button {
+        padding: 14px !important;
+        font-size: 15px !important;
+    }
+    
+    #changeImageBtn {
+        width: 100% !important;
+        margin-top: 10px !important;
+        padding: 10px 16px !important;
+    }
+    
+    /* Zone de changement d'image */
+    .controls > div:first-child {
+        flex-direction: column !important;
+        align-items: stretch !important;
+    }
+    
+    #currentFileName {
+        max-width: 100% !important;
+        margin-bottom: 10px !important;
+        text-align: center !important;
+    }
+    
+    /* Preview live */
+    .live-preview {
+        max-width: 100% !important;
+    }
+    
+    .live-preview-header {
+        font-size: 13px !important;
+        padding: 12px 15px !important;
+    }
+    
+    .preview-container {
+        padding: 15px !important;
+        min-height: 250px !important;
+    }
+    
+    #livePreviewImg {
+        max-width: 100% !important;
+        height: auto !important;
+    }
+    
+    /* Features */
+    .features {
+        padding: 15px !important;
+        margin-top: 20px !important;
+    }
+    
+    .features h4 {
+        font-size: 14px !important;
+        margin-bottom: 12px !important;
+    }
+    
+    .features ul {
+        grid-template-columns: 1fr !important;
+        gap: 8px !important;
+    }
+    
+    .features li {
+        font-size: 12px !important;
+        gap: 8px !important;
+    }
+    
+    .features li span {
+        font-size: 18px !important;
+    }
+    
+    /* Info et messages */
+    .info, .quota-info, .error {
+        font-size: 12px !important;
+        padding: 12px !important;
+    }
+    
+    /* URL container */
+    .url-input-group {
+        flex-direction: column !important;
+    }
+    
+    .url-input-group input {
+        font-size: 12px !important;
+    }
+    
+    .btn-copy-url {
+        width: 100% !important;
+    }
+}
+
+@media (max-width: 480px) {
+    /* Très petits écrans */
+    .left-panel, .right-panel {
+        padding: 12px !important;
+    }
+    
+    .upload-zone {
+        padding: 20px 12px !important;
+    }
+    
+    .upload-icon {
+        font-size: 40px !important;
+    }
+    
+    .upload-zone h3 {
+        font-size: 16px !important;
+    }
+    
+    button {
+        padding: 12px !important;
+        font-size: 14px !important;
+    }
+    
+    .control-group {
+        padding: 12px !important;
+    }
+    
+    .features {
+        padding: 12px !important;
+    }
+    
+    input[type="range"] {
+        height: 6px !important;
+    }
+    
+    input[type="range"]::-webkit-slider-thumb {
+        width: 18px !important;
+        height: 18px !important;
+    }
+    
+    input[type="range"]::-moz-range-thumb {
+        width: 18px !important;
+        height: 18px !important;
+    }
+}
+
+/* Orientation paysage sur mobile */
+@media (max-width: 768px) and (orientation: landscape) {
+    .preview-container {
+        max-height: 60vh !important;
+    }
+    
+    #livePreviewImg {
+        max-height: 50vh !important;
+    }
+}

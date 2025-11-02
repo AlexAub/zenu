@@ -17,6 +17,8 @@ $quotas = $stmt->fetch();
 // Inclure le header
 require_once 'header.php';
 ?>
+
+		<link rel="stylesheet" href="assets/css/convertisseur-prive-responsive.css">
 <!DOCTYPE html>
     <title>Convertisseur Cloud - Qualité Améliorée</title>
     <style>
