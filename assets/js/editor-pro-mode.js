@@ -181,7 +181,8 @@ function updateSelectionIndicator() {
 // ===== FONCTIONS DE GESTION DU TEXTE =====
 
 /**
- * Ajouter du texte au canvas
+ * ✅ SOLUTION 2 : Modifier addText() pour créer des Textbox au lieu d'IText
+ * Remplacez aussi la fonction addText() par celle-ci
  */
 function addText() {
     const textInput = document.getElementById('textInput');
@@ -203,14 +204,17 @@ function addText() {
         return;
     }
     
+    // ⭐ CHANGEMENT : Utiliser Textbox au lieu de IText
     const textOptions = {
         left: 100,
         top: 100,
+        width: 300, // ⭐ AJOUTER la largeur pour permettre l'alignement
         fontSize: textSize ? parseInt(textSize.value) : 40,
         fill: textColor ? textColor.value : '#ffffff',
         stroke: textStrokeColor ? textStrokeColor.value : '#000000',
         strokeWidth: textStrokeWidth ? parseInt(textStrokeWidth.value) : 0,
         fontFamily: textFont ? textFont.value : 'Arial',
+        textAlign: 'left', // ⭐ Alignement par défaut
         selectable: true,
         editable: true,
         hasControls: true,
@@ -231,7 +235,8 @@ function addText() {
         };
     }
     
-    const text = new fabric.IText(textInput.value, textOptions);
+    // ⭐ CHANGEMENT : Textbox au lieu de IText
+    const text = new fabric.Textbox(textInput.value, textOptions);
     fabricCanvas.add(text);
     fabricCanvas.setActiveObject(text);
     fabricCanvas.centerObject(text);
@@ -277,20 +282,102 @@ function toggleTextStyle(style) {
 }
 
 /**
- * ✅ CORRIGÉ: Définir l'alignement du texte (avec création automatique de zone de texte)
+ * 🎯 VRAIE CORRECTION - Boutons d'alignement
+ * 
+ * PROBLÈME IDENTIFIÉ :
+ * - textAlign ne fonctionne QUE sur les Textbox (texte avec largeur fixe)
+ * - textAlign ne fonctionne PAS sur les IText (texte simple)
+ * - La fonction addText() crée des IText
+ * - Donc l'alignement ne marche pas sur les textes créés avec "Ajouter texte"
+ * 
+ * SOLUTION :
+ * 1. Convertir automatiquement IText en Textbox quand on change l'alignement
+ * 2. OU utiliser uniquement des Textbox partout
+ */
+
+/**
+ * ✅ SOLUTION 1 : Convertir IText en Textbox (RECOMMANDÉ)
+ * Cette fonction remplace l'ancienne setTextAlign
  */
 function setTextAlign(align) {
-    const activeObject = fabricCanvas.getActiveObject();
+    console.log('🔵 setTextAlign appelé avec:', align);
     
-    // Si un texte est déjà sélectionné, changer son alignement
-    if (activeObject && (activeObject.type === 'i-text' || activeObject.type === 'textbox')) {
-        activeObject.set('textAlign', align);
-        activeObject.setCoords();
-        fabricCanvas.renderAll();
+    if (!fabricCanvas) {
+        console.error('❌ fabricCanvas non initialisé');
+        alert('⚠️ Le canvas n\'est pas prêt. Rechargez la page.');
         return;
     }
     
-    // ✅ Sinon, créer une zone de texte multiligne avec l'alignement choisi
+    const activeObject = fabricCanvas.getActiveObject();
+    console.log('🔵 Objet actif:', activeObject ? activeObject.type : 'aucun');
+    
+    // CAS 1 : Un texte est sélectionné
+    if (activeObject && (activeObject.type === 'i-text' || activeObject.type === 'textbox')) {
+        
+        // Si c'est un IText, le convertir en Textbox
+        if (activeObject.type === 'i-text') {
+            console.log('🔄 Conversion IText → Textbox pour permettre l\'alignement');
+            
+            // Sauvegarder les propriétés de l'IText
+            const props = {
+                left: activeObject.left,
+                top: activeObject.top,
+                fontSize: activeObject.fontSize,
+                fontFamily: activeObject.fontFamily,
+                fontWeight: activeObject.fontWeight,
+                fontStyle: activeObject.fontStyle,
+                fill: activeObject.fill,
+                stroke: activeObject.stroke,
+                strokeWidth: activeObject.strokeWidth,
+                underline: activeObject.underline,
+                linethrough: activeObject.linethrough,
+                shadow: activeObject.shadow,
+                angle: activeObject.angle,
+                scaleX: activeObject.scaleX,
+                scaleY: activeObject.scaleY,
+                opacity: activeObject.opacity
+            };
+            
+            // Créer une Textbox avec le même texte et les mêmes propriétés
+            const textbox = new fabric.Textbox(activeObject.text, {
+                ...props,
+                width: 300, // Largeur fixe nécessaire pour l'alignement
+                textAlign: align,
+                selectable: true,
+                editable: true,
+                hasControls: true,
+                hasBorders: true,
+                borderColor: '#667eea',
+                cornerColor: '#667eea',
+                cornerSize: 12,
+                cornerStyle: 'circle',
+                transparentCorners: false
+            });
+            
+            // Remplacer l'IText par la Textbox
+            const index = fabricCanvas.getObjects().indexOf(activeObject);
+            fabricCanvas.remove(activeObject);
+            fabricCanvas.insertAt(textbox, index);
+            fabricCanvas.setActiveObject(textbox);
+            textbox.setCoords();
+            fabricCanvas.renderAll();
+            
+            console.log('✅ IText converti en Textbox avec alignement:', align);
+            
+        } else {
+            // C'est déjà une Textbox, juste changer l'alignement
+            console.log('✅ Modification alignement Textbox existante');
+            activeObject.set('textAlign', align);
+            activeObject.setCoords();
+            fabricCanvas.renderAll();
+        }
+        
+        return;
+    }
+    
+    // CAS 2 : Aucun texte sélectionné → créer une nouvelle Textbox
+    console.log('✅ Création nouvelle Textbox avec alignement:', align);
+    
     const textInput = document.getElementById('textInput');
     const textFont = document.getElementById('textFont');
     const textSize = document.getElementById('textSize');
@@ -298,19 +385,28 @@ function setTextAlign(align) {
     const textStrokeColor = document.getElementById('textStrokeColor');
     const textStrokeWidth = document.getElementById('textStrokeWidth');
     
-    // Utiliser le texte du champ s'il y en a un, sinon texte par défaut
-    const defaultText = textInput && textInput.value.trim() ? textInput.value : 'Cliquez ici pour modifier le texte';
+    let textContent;
+    if (textInput && textInput.value.trim()) {
+        textContent = textInput.value;
+    } else {
+        switch(align) {
+            case 'left': textContent = 'Texte aligné à gauche'; break;
+            case 'center': textContent = 'Texte centré'; break;
+            case 'right': textContent = 'Texte aligné à droite'; break;
+            default: textContent = 'Nouveau texte';
+        }
+    }
     
-    const textboxOptions = {
-        left: 150,
-        top: 150,
-        width: 300,
+    const textbox = new fabric.Textbox(textContent, {
+        left: Math.max(50, fabricCanvas.width / 2 - 150),
+        top: Math.max(50, fabricCanvas.height / 2 - 50),
+        width: 300, // ⭐ ESSENTIEL pour que l'alignement fonctionne
         fontSize: textSize ? parseInt(textSize.value) : 40,
         fill: textColor ? textColor.value : '#ffffff',
         stroke: textStrokeColor ? textStrokeColor.value : '#000000',
         strokeWidth: textStrokeWidth ? parseInt(textStrokeWidth.value) : 0,
         fontFamily: textFont ? textFont.value : 'Arial',
-        textAlign: align,
+        textAlign: align, // ⭐ L'alignement
         selectable: true,
         editable: true,
         hasControls: true,
@@ -320,16 +416,14 @@ function setTextAlign(align) {
         cornerSize: 12,
         cornerStyle: 'circle',
         transparentCorners: false
-    };
+    });
     
-    const textbox = new fabric.Textbox(defaultText, textboxOptions);
     fabricCanvas.add(textbox);
     fabricCanvas.setActiveObject(textbox);
     fabricCanvas.centerObject(textbox);
     textbox.setCoords();
     fabricCanvas.renderAll();
     
-    // Vider le champ si on a utilisé son contenu
     if (textInput && textInput.value.trim()) {
         textInput.value = '';
     }
@@ -339,7 +433,10 @@ function setTextAlign(align) {
         textbox.setCoords();
         fabricCanvas.requestRenderAll();
     }, 50);
+    
+    console.log('✅ Textbox créée avec succès');
 }
+
 
 /**
  * Mettre à jour la police du texte sélectionné
