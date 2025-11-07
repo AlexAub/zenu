@@ -261,17 +261,49 @@ function setCropRatio(ratio) {
         try {
             cropper.setAspectRatio(ratio);
             
+            // Retirer la classe active de tous les boutons
             document.querySelectorAll('.aspect-btn').forEach(function(btn) {
                 btn.classList.remove('active');
             });
             
+            // Trouver et activer le bon bouton
             const buttons = document.querySelectorAll('.aspect-btn');
             buttons.forEach(function(btn) {
                 const onclick = btn.getAttribute('onclick');
-                if (onclick && onclick.includes(String(ratio))) {
-                    btn.classList.add('active');
+                if (onclick) {
+                    // Extraire la valeur entre les parenthèses de setCropRatio(...)
+                    const match = onclick.match(/setCropRatio\((.*?)\)/);
+                    if (match) {
+                        const btnRatioStr = match[1].trim();
+                        
+                        // Cas 1: Mode Libre (NaN)
+                        if (isNaN(ratio) && btnRatioStr === 'NaN') {
+                            btn.classList.add('active');
+                            return;
+                        }
+                        
+                        // Cas 2: Ratios numériques
+                        if (!isNaN(ratio) && btnRatioStr !== 'NaN') {
+                            // Évaluer l'expression du bouton (ex: "16/9" devient 1.777...)
+                            let btnRatioValue;
+                            try {
+                                // Utiliser Function au lieu de eval pour plus de sécurité
+                                btnRatioValue = new Function('return ' + btnRatioStr)();
+                            } catch (e) {
+                                btnRatioValue = parseFloat(btnRatioStr);
+                            }
+                            
+                            // Comparer avec une tolérance pour les nombres à virgule flottante
+                            const tolerance = 0.0001;
+                            if (Math.abs(ratio - btnRatioValue) < tolerance) {
+                                btn.classList.add('active');
+                            }
+                        }
+                    }
                 }
             });
+            
+            console.log('Ratio défini:', ratio);
         } catch (error) {
             console.error('Erreur setCropRatio:', error);
         }

@@ -38,6 +38,9 @@ require_once 'header.php';
 	<link rel="stylesheet" href="assets/css/editor-header-fix.css">
 	<link rel="stylesheet" href="assets/css/editor-pro-styles.css">
 	<link rel="stylesheet" href="assets/css/editeur-responsive.css">
+	<link rel="stylesheet" href="assets/css/editor-image-selector.css">
+
+	
     
     <div class="editor-container">
         <!-- Sélecteur de mode -->
@@ -116,7 +119,11 @@ require_once 'header.php';
                     </div>
                 </div>
                 <input type="file" id="fileInput" accept="image/*">
-                
+                <div style="margin-top: 15px;">
+				<button class="btn btn-secondary btn-block" onclick="openImageSelector()">
+					🖼️ Choisir depuis mes images
+					</button>
+				</div>
                 <div style="margin-top: 20px;">
                     <button class="btn btn-secondary btn-block" onclick="window.location.href='dashboard.php'">
                         ↩️ Retour au dashboard
@@ -156,7 +163,7 @@ require_once 'header.php';
     <script src="assets/js/editor-simple-mode.js"></script>
     <script src="assets/js/editor-advanced-mode.js"></script>
     <script src="assets/js/editor-pro-mode.js"></script>
-    
+	<script src="assets/js/editor-image-selector.js"></script>    
     <?php if ($image): ?>
     <script>
         // Charger l'image existante au démarrage
@@ -172,5 +179,49 @@ require_once 'header.php';
         });
     </script>
     <?php endif; ?>
+	
+	<!-- Modal de sélection d'images -->
+<div id="imageSelectorModal" class="image-selector-modal">
+    <div class="image-selector-content">
+        <!-- Header -->
+        <div class="image-selector-header">
+            <h3>
+                <span style="font-size: 24px;">🖼️</span>
+                Sélectionner une image
+            </h3>
+            <button class="close-modal" onclick="closeImageSelector()" title="Fermer">
+                ✕
+            </button>
+        </div>
+        
+        <!-- Barre de recherche -->
+        <div class="image-selector-search">
+            <input 
+                type="text" 
+                id="imageSelectorSearch" 
+                placeholder="🔍 Rechercher dans vos images..." 
+                oninput="searchUserImages()">
+        </div>
+        
+        <!-- Corps avec la grille d'images -->
+        <div class="image-selector-body">
+            <div id="imageSelectorGrid">
+                <!-- Les images seront chargées ici par JavaScript -->
+            </div>
+        </div>
+        
+        <!-- Footer avec boutons -->
+        <div class="image-selector-footer">
+            <button class="btn btn-secondary" onclick="closeImageSelector()">
+                Annuler
+            </button>
+            <button class="btn btn-primary" onclick="confirmImageSelection()">
+                ✓ Utiliser cette image
+            </button>
+        </div>
+    </div>
+</div>
+
+	
 </body>
 </html>
