@@ -8,7 +8,8 @@ define('DB_PASS', 'XXXXXX'); // À remplacer par ton mot de passe
 // Configuration du site
 define('SITE_URL', 'https://url.fr/'); // URL de ton site
 define('SITE_NAME', 'Zenu');
-
+// Configuration REMOVE.BG
+define('REMOVE_BG_API_KEY', 'VOTRE_CLE_API_ICI');
 // Démarrer la session
 session_start();
 

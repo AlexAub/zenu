@@ -1,70 +1,205 @@
 <?php
 /**
- * API de suppression de fond avec algorithme amélioré
- * Utilise plusieurs techniques combinées pour de meilleurs résultats
+ * API de suppression de fond - Version finale
+ * Priorité : Remove.bg API (qualité professionnelle)
+ * Fallback : Algorithme local amélioré
  */
 
-require_once '../config.php';
-require_once '../security.php';
+ini_set('display_errors', 0);
+error_reporting(E_ALL);
+ini_set('log_errors', 1);
+ini_set('error_log', __DIR__ . '/../logs/ai-errors.log');
 
-header('Content-Type: application/json');
+set_time_limit(120);
+ini_set('memory_limit', '768M');
 
-if (!isLoggedIn()) {
-    echo json_encode(['success' => false, 'error' => 'Non authentifié']);
-    exit;
-}
-
-if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
-    echo json_encode(['success' => false, 'error' => 'Méthode non autorisée']);
-    exit;
-}
-
-$input = json_decode(file_get_contents('php://input'), true);
-$imageId = intval($input['image_id'] ?? 0);
-$imagePath = $input['image_path'] ?? '';
-$options = $input['options'] ?? [];
-
-$userId = $_SESSION['user_id'];
-
-// Vérifier que l'image appartient à l'utilisateur
-$stmt = $pdo->prepare("SELECT * FROM images WHERE id = ? AND user_id = ? AND is_deleted = 0");
-$stmt->execute([$imageId, $userId]);
-$image = $stmt->fetch();
-
-if (!$image) {
-    echo json_encode(['success' => false, 'error' => 'Image non trouvée']);
-    exit;
-}
-
-// Chemin de l'image
-$fullPath = '../' . $imagePath;
-if (!file_exists($fullPath)) {
-    echo json_encode(['success' => false, 'error' => 'Fichier introuvable']);
-    exit;
+function logError($message) {
+    $logFile = __DIR__ . '/../logs/ai-errors.log';
+    $logDir = dirname($logFile);
+    if (!is_dir($logDir)) {
+        @mkdir($logDir, 0755, true);
+    }
+    @file_put_contents($logFile, date('[Y-m-d H:i:s] ') . $message . "\n", FILE_APPEND);
 }
 
 try {
-    // Charger l'image
-    $imageInfo = getimagesize($fullPath);
+    require_once '../config.php';
+    require_once '../security.php';
+    
+    header('Content-Type: application/json');
+    
+    if (!isLoggedIn()) {
+        echo json_encode(['success' => false, 'error' => 'Non authentifié']);
+        exit;
+    }
+    
+    if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
+        echo json_encode(['success' => false, 'error' => 'Méthode non autorisée']);
+        exit;
+    }
+    
+    $input = json_decode(file_get_contents('php://input'), true);
+    if (!$input) {
+        throw new Exception('JSON invalide');
+    }
+    
+    $imageId = intval($input['image_id'] ?? 0);
+    $imagePath = $input['image_path'] ?? '';
+    $options = $input['options'] ?? [];
+    
+    $userId = $_SESSION['user_id'];
+    
+    $stmt = $pdo->prepare("SELECT * FROM images WHERE id = ? AND user_id = ? AND is_deleted = 0");
+    $stmt->execute([$imageId, $userId]);
+    $image = $stmt->fetch();
+    
+    if (!$image) {
+        throw new Exception('Image non trouvée');
+    }
+    
+    $fullPath = '../' . $imagePath;
+    if (!file_exists($fullPath)) {
+        throw new Exception('Fichier introuvable');
+    }
+    
+    $fileSize = filesize($fullPath);
+    
+    logError("Processing image $imageId - Size: " . round($fileSize / 1024) . "KB");
+    
+    // Vérifier si Remove.bg API est configurée
+    $removeBgKey = defined('REMOVE_BG_API_KEY') ? REMOVE_BG_API_KEY : '';
+    $useRemoveBg = !empty($removeBgKey) && $fileSize <= (12 * 1024 * 1024); // Max 12MB
+    
+    $method = 'local';
+    $resultPath = null;
+    
+    // Essayer Remove.bg en priorité
+    if ($useRemoveBg) {
+        try {
+            logError("Trying Remove.bg API");
+            $resultPath = processWithRemoveBg($fullPath, $removeBgKey);
+            $method = 'remove_bg_api';
+            logError("Remove.bg API success");
+        } catch (Exception $e) {
+            logError("Remove.bg API failed: " . $e->getMessage());
+            // Continuer avec l'algorithme local
+        }
+    }
+    
+    // Fallback sur algorithme local
+    if (!$resultPath) {
+        logError("Using local algorithm");
+        $resultPath = processLocalAlgorithm($fullPath, $options);
+        $method = 'local_improved';
+    }
+    
+    if (!$resultPath || !file_exists($resultPath)) {
+        throw new Exception("Échec du traitement");
+    }
+    
+    $relativePath = str_replace('../', '', $resultPath);
+    
+    echo json_encode([
+        'success' => true,
+        'processed_image' => $relativePath,
+        'filename' => pathinfo($image['filename'], PATHINFO_FILENAME) . '_nobg.png',
+        'original_size' => $fileSize,
+        'processed_size' => filesize($resultPath),
+        'method' => $method
+    ]);
+    
+} catch (Exception $e) {
+    logError("ERROR: " . $e->getMessage());
+    echo json_encode([
+        'success' => false,
+        'error' => $e->getMessage()
+    ]);
+}
+
+/**
+ * Traiter avec Remove.bg API
+ */
+function processWithRemoveBg($imagePath, $apiKey) {
+    if (!function_exists('curl_init')) {
+        throw new Exception('cURL not available');
+    }
+    
+    $ch = curl_init();
+    
+    curl_setopt_array($ch, [
+        CURLOPT_URL => 'https://api.remove.bg/v1.0/removebg',
+        CURLOPT_RETURNTRANSFER => true,
+        CURLOPT_POST => true,
+        CURLOPT_HTTPHEADER => [
+            'X-Api-Key: ' . $apiKey
+        ],
+        CURLOPT_POSTFIELDS => [
+            'image_file' => new CURLFile($imagePath),
+            'size' => 'auto'
+        ],
+        CURLOPT_TIMEOUT => 30
+    ]);
+    
+    $response = curl_exec($ch);
+    $httpCode = curl_getinfo($ch, CURLINFO_HTTP_CODE);
+    $error = curl_error($ch);
+    
+    curl_close($ch);
+    
+    if ($error) {
+        throw new Exception("cURL error: $error");
+    }
+    
+    if ($httpCode !== 200) {
+        $errorData = @json_decode($response, true);
+        $errorMsg = $errorData['errors'][0]['title'] ?? 'API Error';
+        throw new Exception("Remove.bg API error ($httpCode): $errorMsg");
+    }
+    
+    // Sauvegarder le résultat
+    $tempDir = '../uploads/temp';
+    if (!is_dir($tempDir)) {
+        @mkdir($tempDir, 0755, true);
+    }
+    
+    $tempFilename = 'ai_nobg_' . uniqid() . '_' . time() . '.png';
+    $tempPath = $tempDir . '/' . $tempFilename;
+    
+    if (file_put_contents($tempPath, $response) === false) {
+        throw new Exception("Failed to save result");
+    }
+    
+    return $tempPath;
+}
+
+/**
+ * Traiter avec algorithme local amélioré
+ */
+function processLocalAlgorithm($imagePath, $options) {
+    $imageInfo = @getimagesize($imagePath);
     if ($imageInfo === false) {
         throw new Exception("Format d'image invalide");
     }
     
     list($width, $height, $type) = $imageInfo;
     
-    // Créer l'image source
+    if ($width > 2000 || $height > 2000) {
+        throw new Exception("Image trop grande (max 2000x2000)");
+    }
+    
+    // Charger l'image
     switch ($type) {
         case IMAGETYPE_JPEG:
-            $sourceImage = imagecreatefromjpeg($fullPath);
+            $sourceImage = @imagecreatefromjpeg($imagePath);
             break;
         case IMAGETYPE_PNG:
-            $sourceImage = imagecreatefrompng($fullPath);
+            $sourceImage = @imagecreatefrompng($imagePath);
             break;
         case IMAGETYPE_GIF:
-            $sourceImage = imagecreatefromgif($fullPath);
+            $sourceImage = @imagecreatefromgif($imagePath);
             break;
         case IMAGETYPE_WEBP:
-            $sourceImage = imagecreatefromwebp($fullPath);
+            $sourceImage = @imagecreatefromwebp($imagePath);
             break;
         default:
             throw new Exception("Type d'image non supporté");
@@ -74,457 +209,182 @@ try {
         throw new Exception("Impossible de charger l'image");
     }
     
-    // Options de détection
-    $detectionMode = $options['detectionMode'] ?? 'auto';
     $edgeQuality = $options['edgeQuality'] ?? 'medium';
     
-    // Créer une image de résultat avec transparence
-    $resultImage = imagecreatetruecolor($width, $height);
-    imagealphablending($resultImage, false);
-    imagesavealpha($resultImage, true);
+    // Algorithme local simple mais efficace
+    $resultImage = simpleBackgroundRemoval($sourceImage, $width, $height, $edgeQuality);
     
-    // Algorithme de suppression de fond amélioré
-    $result = removeBackgroundAdvanced($sourceImage, $width, $height, $detectionMode, $edgeQuality);
-    
-    // Copier le résultat
-    imagecopy($resultImage, $result, 0, 0, 0, 0, $width, $height);
-    imagedestroy($result);
-    
-    // Sauvegarder le résultat temporaire
+    // Sauvegarder
     $tempDir = '../uploads/temp';
     if (!is_dir($tempDir)) {
-        mkdir($tempDir, 0755, true);
+        @mkdir($tempDir, 0755, true);
     }
     
-    $tempFilename = 'ai_nobg_' . uniqid() . '.png';
+    $tempFilename = 'ai_nobg_' . uniqid() . '_' . time() . '.png';
     $tempPath = $tempDir . '/' . $tempFilename;
     
-    imagepng($resultImage, $tempPath, 9); // Compression maximale PNG
+    if (!@imagepng($resultImage, $tempPath, 9)) {
+        throw new Exception("Impossible de sauvegarder");
+    }
     
-    // Libérer la mémoire
-    imagedestroy($sourceImage);
-    imagedestroy($resultImage);
+    @imagedestroy($sourceImage);
+    @imagedestroy($resultImage);
     
-    // Retourner le chemin relatif pour l'affichage
-    $relativePath = 'uploads/temp/' . $tempFilename;
-    
-    echo json_encode([
-        'success' => true,
-        'processed_image' => $relativePath,
-        'filename' => pathinfo($image['filename'], PATHINFO_FILENAME) . '_nobg.png',
-        'original_size' => filesize($fullPath),
-        'processed_size' => filesize($tempPath),
-        'method' => 'advanced_multi_pass'
-    ]);
-    
-} catch (Exception $e) {
-    echo json_encode([
-        'success' => false,
-        'error' => $e->getMessage()
-    ]);
+    return $tempPath;
 }
 
 /**
- * Algorithme avancé de suppression de fond
- * Utilise plusieurs passes et techniques combinées
+ * Algorithme local simplifié mais efficace
  */
-function removeBackgroundAdvanced($image, $width, $height, $mode, $quality) {
-    // Créer l'image de sortie
+function simpleBackgroundRemoval($source, $width, $height, $quality) {
     $output = imagecreatetruecolor($width, $height);
     imagealphablending($output, false);
     imagesavealpha($output, true);
     
-    // Étape 1 : Détection des bords et du sujet principal
-    $subjectMask = detectSubject($image, $width, $height, $mode);
+    $transparent = imagecolorallocatealpha($output, 0, 0, 0, 127);
+    imagefill($output, 0, 0, $transparent);
     
-    // Étape 2 : Affiner les bords selon la qualité demandée
-    $refinedMask = refineMask($subjectMask, $width, $height, $quality);
+    // Analyser les 4 coins pour détecter le fond
+    $cornerSize = max(20, min(50, floor(min($width, $height) / 10)));
     
-    // Étape 3 : Appliquer le masque avec feathering (dégradé sur les bords)
-    applyMaskWithFeathering($image, $output, $refinedMask, $width, $height, $quality);
+    $corners = [
+        getCornerColor($source, 0, 0, $cornerSize, $width, $height),
+        getCornerColor($source, $width - $cornerSize, 0, $cornerSize, $width, $height),
+        getCornerColor($source, 0, $height - $cornerSize, $cornerSize, $width, $height),
+        getCornerColor($source, $width - $cornerSize, $height - $cornerSize, $cornerSize, $width, $height)
+    ];
+    
+    // Calculer tolérance adaptative
+    $maxDiff = 0;
+    for ($i = 0; $i < 4; $i++) {
+        for ($j = $i + 1; $j < 4; $j++) {
+            $diff = colorDistance($corners[$i], $corners[$j]);
+            $maxDiff = max($maxDiff, $diff);
+        }
+    }
+    
+    $tolerance = 60 + ($maxDiff * 0.5);
+    
+    if ($quality === 'high') {
+        $tolerance *= 0.9;
+    } elseif ($quality === 'low') {
+        $tolerance *= 1.2;
+    }
+    
+    logError("Local algorithm - Tolerance: $tolerance");
+    
+    // Zone centrale privilégiée
+    $margin = 0.2;
+    $centerX1 = floor($width * $margin);
+    $centerY1 = floor($height * $margin);
+    $centerX2 = floor($width * (1 - $margin));
+    $centerY2 = floor($height * (1 - $margin));
+    
+    // Créer le masque
+    $blurRadius = ($quality === 'high') ? 2 : (($quality === 'low') ? 0 : 1);
+    
+    for ($y = 0; $y < $height; $y++) {
+        for ($x = 0; $x < $width; $x++) {
+            $pixel = getPixelColor($source, $x, $y);
+            
+            // Distance minimale à l'un des coins
+            $minDist = PHP_INT_MAX;
+            foreach ($corners as $corner) {
+                $dist = colorDistance($pixel, $corner);
+                $minDist = min($minDist, $dist);
+            }
+            
+            // Bonus de centralité
+            $inCenter = ($x >= $centerX1 && $x <= $centerX2 && $y >= $centerY1 && $y <= $centerY2);
+            $centerBonus = $inCenter ? 15 : 0;
+            
+            $isSubject = ($minDist + $centerBonus) > $tolerance;
+            
+            if ($isSubject) {
+                $alpha = 0;
+                
+                // Anti-aliasing sur les bords
+                if ($blurRadius > 0) {
+                    $bgNeighbors = 0;
+                    $total = 0;
+                    
+                    for ($dy = -$blurRadius; $dy <= $blurRadius; $dy++) {
+                        for ($dx = -$blurRadius; $dx <= $blurRadius; $dx++) {
+                            $ny = $y + $dy;
+                            $nx = $x + $dx;
+                            
+                            if ($ny >= 0 && $ny < $height && $nx >= 0 && $nx < $width) {
+                                $nPixel = getPixelColor($source, $nx, $ny);
+                                $nMinDist = PHP_INT_MAX;
+                                foreach ($corners as $corner) {
+                                    $nDist = colorDistance($nPixel, $corner);
+                                    $nMinDist = min($nMinDist, $nDist);
+                                }
+                                
+                                $total++;
+                                if ($nMinDist <= $tolerance) {
+                                    $bgNeighbors++;
+                                }
+                            }
+                        }
+                    }
+                    
+                    if ($bgNeighbors > 0 && $total > 0) {
+                        $ratio = $bgNeighbors / $total;
+                        $alpha = (int)(127 * $ratio * 0.6);
+                    }
+                }
+                
+                $color = imagecolorallocatealpha($output, $pixel['r'], $pixel['g'], $pixel['b'], $alpha);
+                imagesetpixel($output, $x, $y, $color);
+            }
+        }
+    }
     
     return $output;
 }
 
-/**
- * Détecter le sujet principal de l'image
- * Combine plusieurs techniques
- */
-function detectSubject($image, $width, $height, $mode) {
-    $mask = [];
-    
-    // Échantillonnage adaptatif
-    $step = max(1, floor(min($width, $height) / 200));
-    
-    // Analyser les bords pour détecter le fond
-    $borderColors = analyzeBorderColors($image, $width, $height);
-    
-    // Détecter le centre de masse du sujet (zones contrastées)
-    $subjectCenter = findSubjectCenter($image, $width, $height);
-    
-    for ($x = 0; $x < $width; $x += $step) {
-        for ($y = 0; $y < $height; $y += $step) {
-            $rgb = imagecolorat($image, $x, $y);
-            $r = ($rgb >> 16) & 0xFF;
-            $g = ($rgb >> 8) & 0xFF;
-            $b = $rgb & 0xFF;
-            
-            // Calculer la probabilité que ce pixel soit le sujet
-            $isSubject = calculateSubjectProbability(
-                $r, $g, $b,
-                $x, $y,
-                $width, $height,
-                $borderColors,
-                $subjectCenter,
-                $mode
-            );
-            
-            // Remplir le masque par blocs
-            for ($dx = 0; $dx < $step && ($x + $dx) < $width; $dx++) {
-                for ($dy = 0; $dy < $step && ($y + $dy) < $height; $dy++) {
-                    $mask[$x + $dx][$y + $dy] = $isSubject;
-                }
-            }
-        }
-    }
-    
-    // Post-traitement : éliminer les petits îlots isolés
-    $mask = removeSmallIslands($mask, $width, $height);
-    
-    return $mask;
-}
-
-/**
- * Analyser les couleurs des bords de l'image
- */
-function analyzeBorderColors($image, $width, $height) {
-    $borderPixels = [];
-    $borderSize = max(5, min($width, $height) / 50);
-    
-    // Échantillonner les 4 bords
-    for ($i = 0; $i < $width; $i += 5) {
-        // Haut
-        for ($j = 0; $j < $borderSize; $j++) {
-            $borderPixels[] = imagecolorat($image, $i, $j);
-        }
-        // Bas
-        for ($j = $height - $borderSize; $j < $height; $j++) {
-            $borderPixels[] = imagecolorat($image, $i, $j);
-        }
-    }
-    
-    for ($j = 0; $j < $height; $j += 5) {
-        // Gauche
-        for ($i = 0; $i < $borderSize; $i++) {
-            $borderPixels[] = imagecolorat($image, $i, $j);
-        }
-        // Droite
-        for ($i = $width - $borderSize; $i < $width; $i++) {
-            $borderPixels[] = imagecolorat($image, $i, $j);
-        }
-    }
-    
-    // Calculer les statistiques des couleurs de bord
-    $avgR = $avgG = $avgB = 0;
-    $count = count($borderPixels);
-    
-    foreach ($borderPixels as $color) {
-        $avgR += ($color >> 16) & 0xFF;
-        $avgG += ($color >> 8) & 0xFF;
-        $avgB += $color & 0xFF;
-    }
-    
-    return [
-        'r' => $avgR / $count,
-        'g' => $avgG / $count,
-        'b' => $avgB / $count,
-        'samples' => $borderPixels
-    ];
-}
-
-/**
- * Trouver le centre du sujet
- */
-function findSubjectCenter($image, $width, $height) {
-    $weightedX = 0;
-    $weightedY = 0;
-    $totalWeight = 0;
-    
-    $step = max(1, floor(min($width, $height) / 100));
-    
-    for ($x = $step; $x < $width - $step; $x += $step) {
-        for ($y = $step; $y < $height - $step; $y += $step) {
-            // Calculer le gradient (détection de bords)
-            $gradient = calculateGradient($image, $x, $y, $width, $height);
-            
-            if ($gradient > 20) {
-                $weightedX += $x * $gradient;
-                $weightedY += $y * $gradient;
-                $totalWeight += $gradient;
-            }
-        }
-    }
-    
-    if ($totalWeight > 0) {
-        return [
-            'x' => $weightedX / $totalWeight,
-            'y' => $weightedY / $totalWeight
-        ];
-    }
-    
-    return ['x' => $width / 2, 'y' => $height / 2];
-}
-
-/**
- * Calculer le gradient (Sobel simplifié)
- */
-function calculateGradient($image, $x, $y, $width, $height) {
-    if ($x <= 0 || $y <= 0 || $x >= $width - 1 || $y >= $height - 1) {
-        return 0;
-    }
-    
+function getCornerColor($image, $startX, $startY, $size, $width, $height) {
     $colors = [];
-    for ($dx = -1; $dx <= 1; $dx++) {
-        for ($dy = -1; $dy <= 1; $dy++) {
-            $rgb = imagecolorat($image, $x + $dx, $y + $dy);
-            $gray = (($rgb >> 16) & 0xFF) + (($rgb >> 8) & 0xFF) + ($rgb & 0xFF);
-            $colors[] = $gray;
+    for ($y = 0; $y < $size; $y++) {
+        for ($x = 0; $x < $size; $x++) {
+            $px = max(0, min($width - 1, $startX + $x));
+            $py = max(0, min($height - 1, $startY + $y));
+            $colors[] = getPixelColor($image, $px, $py);
         }
     }
-    
-    $gx = abs(-$colors[0] + $colors[2] - 2*$colors[3] + 2*$colors[5] - $colors[6] + $colors[8]);
-    $gy = abs(-$colors[0] - 2*$colors[1] - $colors[2] + $colors[6] + 2*$colors[7] + $colors[8]);
-    
-    return sqrt($gx * $gx + $gy * $gy);
+    return averageColor($colors);
 }
 
-/**
- * Calculer la probabilité qu'un pixel soit le sujet
- */
-function calculateSubjectProbability($r, $g, $b, $x, $y, $width, $height, $borderColors, $center, $mode) {
-    $score = 0;
-    
-    // 1. Distance avec les couleurs de bord (plus c'est différent, plus c'est probablement le sujet)
-    $colorDiff = sqrt(
-        pow($r - $borderColors['r'], 2) +
-        pow($g - $borderColors['g'], 2) +
-        pow($b - $borderColors['b'], 2)
-    );
-    $score += min($colorDiff / 100, 1) * 40; // 40% du score
-    
-    // 2. Distance au centre du sujet (plus c'est proche, plus c'est probablement le sujet)
-    $distToCenter = sqrt(pow($x - $center['x'], 2) + pow($y - $center['y'], 2));
-    $maxDist = sqrt(pow($width, 2) + pow($height, 2)) / 2;
-    $centerScore = 1 - ($distToCenter / $maxDist);
-    $score += $centerScore * 35; // 35% du score
-    
-    // 3. Distance aux bords de l'image (plus c'est loin, plus c'est probablement le sujet)
-    $distToBorder = min(
-        $x,
-        $y,
-        $width - $x,
-        $height - $y
-    );
-    $maxBorderDist = min($width, $height) / 2;
-    $borderScore = min($distToBorder / $maxBorderDist, 1);
-    $score += $borderScore * 25; // 25% du score
-    
-    // 4. Bonus pour couleurs saturées (le sujet est souvent plus coloré que le fond)
-    $saturation = calculateSaturation($r, $g, $b);
-    if ($saturation > 0.3) {
-        $score += min($saturation, 1) * 20; // Bonus jusqu'à 20 points
-    }
-    
-    // 5. Pénalité pour couleurs grises/neutres (souvent le fond)
-    if (isGrayish($r, $g, $b)) {
-        $score -= 15; // Pénalité pour gris
-    }
-    
-    // 6. Mode spécifique (portrait, produit, etc.)
-    if ($mode === 'person' || $mode === 'portrait') {
-        // Bonus si c'est une couleur chair
-        if (isSkinTone($r, $g, $b)) {
-            $score += 25; // Augmenté de 15 à 25
-        }
-        // Bonus pour couleurs vives (vêtements, accessoires)
-        if ($saturation > 0.5) {
-            $score += 10;
-        }
-    }
-    
-    return max(0, $score); // Ne jamais retourner de score négatif
-}
-
-/**
- * Vérifier si une couleur est une teinte chair
- */
-function isSkinTone($r, $g, $b) {
-    // Critères pour détecter la peau humaine
-    return ($r > 95 && $g > 40 && $b > 20 &&
-            $r > $g && $r > $b &&
-            abs($r - $g) > 15 &&
-            $r - $b > 15);
-}
-
-/**
- * Calculer la saturation d'une couleur
- */
-function calculateSaturation($r, $g, $b) {
-    $max = max($r, $g, $b);
-    $min = min($r, $g, $b);
-    
-    if ($max == 0) {
-        return 0;
-    }
-    
-    return ($max - $min) / $max;
-}
-
-/**
- * Vérifier si une couleur est grisâtre (neutre)
- */
-function isGrayish($r, $g, $b) {
-    // Si les 3 composantes sont proches, c'est du gris
-    $maxDiff = max(abs($r - $g), abs($g - $b), abs($r - $b));
-    return $maxDiff < 30; // Seuil de différence pour considérer comme gris
-}
-
-/**
- * Affiner le masque selon la qualité demandée
- */
-function refineMask($mask, $width, $height, $quality) {
-    $iterations = [
-        'low' => 1,
-        'medium' => 2,
-        'high' => 3
+function getPixelColor($image, $x, $y) {
+    $rgb = imagecolorat($image, $x, $y);
+    return [
+        'r' => ($rgb >> 16) & 0xFF,
+        'g' => ($rgb >> 8) & 0xFF,
+        'b' => $rgb & 0xFF
     ];
-    
-    $iter = $iterations[$quality] ?? 2;
-    
-    // Appliquer un filtre de lissage sur le masque
-    for ($i = 0; $i < $iter; $i++) {
-        $mask = smoothMask($mask, $width, $height);
-    }
-    
-    return $mask;
 }
 
-/**
- * Lisser le masque pour des bords plus doux
- */
-function smoothMask($mask, $width, $height) {
-    $smoothed = [];
-    
-    for ($x = 0; $x < $width; $x++) {
-        for ($y = 0; $y < $height; $y++) {
-            $sum = 0;
-            $count = 0;
-            
-            // Moyenne 3x3
-            for ($dx = -1; $dx <= 1; $dx++) {
-                for ($dy = -1; $dy <= 1; $dy++) {
-                    $nx = $x + $dx;
-                    $ny = $y + $dy;
-                    
-                    if ($nx >= 0 && $nx < $width && $ny >= 0 && $ny < $height) {
-                        $sum += $mask[$nx][$ny] ?? 0;
-                        $count++;
-                    }
-                }
-            }
-            
-            $smoothed[$x][$y] = $sum / $count;
-        }
-    }
-    
-    return $smoothed;
+function colorDistance($c1, $c2) {
+    return sqrt(
+        pow($c1['r'] - $c2['r'], 2) +
+        pow($c1['g'] - $c2['g'], 2) +
+        pow($c1['b'] - $c2['b'], 2)
+    );
 }
 
-/**
- * Éliminer les petits îlots isolés dans le masque
- */
-function removeSmallIslands($mask, $width, $height) {
-    // Seuil pour définir un îlot "petit"
-    $minIslandSize = ($width * $height) / 100; // 1% de l'image
-    
-    // Pour simplifier, on va juste appliquer un filtre morphologique
-    // Une vraie implémentation utiliserait un algorithme de composantes connexes
-    
-    for ($x = 1; $x < $width - 1; $x++) {
-        for ($y = 1; $y < $height - 1; $y++) {
-            // Compter les voisins qui sont aussi du sujet
-            $neighbors = 0;
-            for ($dx = -1; $dx <= 1; $dx++) {
-                for ($dy = -1; $dy <= 1; $dy++) {
-                    if ($dx == 0 && $dy == 0) continue;
-                    if (($mask[$x + $dx][$y + $dy] ?? 0) > 50) {
-                        $neighbors++;
-                    }
-                }
-            }
-            
-            // Si ce pixel est isolé (peu de voisins), le retirer
-            if ($neighbors < 3 && ($mask[$x][$y] ?? 0) > 50) {
-                $mask[$x][$y] = 0;
-            }
-            // Si ce pixel est entouré, l'inclure
-            elseif ($neighbors > 5 && ($mask[$x][$y] ?? 0) < 50) {
-                $mask[$x][$y] = 100;
-            }
-        }
+function averageColor($colors) {
+    $r = 0; $g = 0; $b = 0;
+    foreach ($colors as $c) {
+        $r += $c['r'];
+        $g += $c['g'];
+        $b += $c['b'];
     }
-    
-    return $mask;
-}
-
-/**
- * Appliquer le masque avec feathering (dégradé sur les bords)
- */
-function applyMaskWithFeathering($source, $output, $mask, $width, $height, $quality) {
-    $featherSize = [
-        'low' => 1,
-        'medium' => 2,
-        'high' => 3
+    $count = count($colors);
+    return [
+        'r' => (int)($r / $count),
+        'g' => (int)($g / $count),
+        'b' => (int)($b / $count)
     ];
-    
-    $feather = $featherSize[$quality] ?? 2;
-    
-    for ($x = 0; $x < $width; $x++) {
-        for ($y = 0; $y < $height; $y++) {
-            $rgb = imagecolorat($source, $x, $y);
-            $r = ($rgb >> 16) & 0xFF;
-            $g = ($rgb >> 8) & 0xFF;
-            $b = $rgb & 0xFF;
-            
-            // Obtenir la valeur du masque (0-100)
-            $maskValue = $mask[$x][$y] ?? 0;
-            
-            // Appliquer un feathering en examinant les voisins
-            if ($maskValue > 10 && $maskValue < 90) {
-                // Zone de transition - appliquer feathering
-                $avgMask = 0;
-                $count = 0;
-                
-                for ($dx = -$feather; $dx <= $feather; $dx++) {
-                    for ($dy = -$feather; $dy <= $feather; $dy++) {
-                        $nx = $x + $dx;
-                        $ny = $y + $dy;
-                        
-                        if ($nx >= 0 && $nx < $width && $ny >= 0 && $ny < $height) {
-                            $avgMask += $mask[$nx][$ny] ?? 0;
-                            $count++;
-                        }
-                    }
-                }
-                
-                $maskValue = $avgMask / $count;
-            }
-            
-            // Convertir le score 0-100 en alpha 0-127
-            $alpha = 127 - round(($maskValue / 100) * 127);
-            
-            $color = imagecolorallocatealpha($output, $r, $g, $b, $alpha);
-            imagesetpixel($output, $x, $y, $color);
-        }
-    }
 }
+?>

@@ -1,7 +1,7 @@
 <?php
 /**
- * API d'amélioration automatique d'image avec IA
- * Optimise luminosité, contraste, saturation et netteté
+ * API d'amélioration automatique - Version optimisée
+ * Améliore l'image sans dégrader la qualité ni augmenter la taille
  */
 
 require_once '../config.php';
@@ -26,7 +26,6 @@ $options = $input['options'] ?? [];
 
 $userId = $_SESSION['user_id'];
 
-// Vérifier que l'image appartient à l'utilisateur
 $stmt = $pdo->prepare("SELECT * FROM images WHERE id = ? AND user_id = ? AND is_deleted = 0");
 $stmt->execute([$imageId, $userId]);
 $image = $stmt->fetch();
@@ -43,7 +42,6 @@ if (!file_exists($fullPath)) {
 }
 
 try {
-    // Charger l'image
     $imageInfo = getimagesize($fullPath);
     if ($imageInfo === false) {
         throw new Exception("Format d'image invalide");
@@ -51,6 +49,7 @@ try {
     
     list($width, $height, $type) = $imageInfo;
     
+    // Charger l'image
     switch ($type) {
         case IMAGETYPE_JPEG:
             $sourceImage = imagecreatefromjpeg($fullPath);
@@ -72,14 +71,14 @@ try {
         throw new Exception("Impossible de charger l'image");
     }
     
-    // Récupérer les options
-    $intensity = ($options['intensity'] ?? 50) / 100; // Convertir en 0-1
+    // Options
+    $intensity = ($options['intensity'] ?? 50) / 100;
     $applyBrightness = $options['brightness'] ?? true;
     $applyContrast = $options['contrast'] ?? true;
     $applySaturation = $options['saturation'] ?? true;
-    $applySharpness = $options['sharpness'] ?? true;
+    $applySharpness = $options['sharpness'] ?? false; // Désactivé par défaut
     
-    // Analyser l'image pour déterminer les corrections nécessaires
+    // Analyser l'image
     $analysis = analyzeImage($sourceImage, $width, $height);
     
     // Créer l'image de résultat
@@ -93,59 +92,70 @@ try {
     
     imagecopy($resultImage, $sourceImage, 0, 0, 0, 0, $width, $height);
     
-    // Appliquer les améliorations de manière plus subtile pour préserver la qualité
+    // Appliquer les corrections de manière très subtile
     
-    // 1. Luminosité automatique (réduite de 60% pour éviter la dégradation)
-    if ($applyBrightness && $analysis['needs_brightness_adjustment']) {
-        $brightnessAdjust = $analysis['brightness_adjustment'] * $intensity * 0.4;
-        imagefilter($resultImage, IMG_FILTER_BRIGHTNESS, round($brightnessAdjust));
-    }
-    
-    // 2. Contraste automatique (réduit de 50%)
-    if ($applyContrast && $analysis['needs_contrast_adjustment']) {
-        $contrastAdjust = $analysis['contrast_adjustment'] * $intensity * 0.5;
-        imagefilter($resultImage, IMG_FILTER_CONTRAST, round($contrastAdjust));
-    }
-    
-    // 3. Saturation des couleurs (très réduite - seulement 25% de l'intensité)
-    if ($applySaturation && $analysis['needs_saturation_adjustment']) {
-        // Ajuster la saturation de manière très subtile pour éviter la perte de qualité
-        $saturationFactor = 1 + ($analysis['saturation_adjustment'] * $intensity * 0.25);
-        adjustSaturation($resultImage, $width, $height, $saturationFactor);
-    }
-    
-    // 4. Netteté (désactivée par défaut car cause principale de dégradation)
-    if ($applySharpness && $intensity > 0.6) {
-        // Appliquer la netteté UNIQUEMENT si l'intensité est > 60%
-        // Et de manière très légère pour éviter les artefacts
-        $sharpnessLevel = min($intensity * 0.3, 12); // Maximum 12% au lieu de 150%
-        $matrix = [
-            [0, -1, 0],
-            [-1, 4 + $sharpnessLevel, -1],
-            [0, -1, 0]
-        ];
-        $divisor = array_sum(array_map('array_sum', $matrix));
-        if ($divisor != 0) {
-            imageconvolution($resultImage, $matrix, $divisor, 0);
+    // 1. Luminosité (seulement si vraiment nécessaire)
+    if ($applyBrightness && $analysis['needs_brightness']) {
+        $adjust = $analysis['brightness_adjust'] * $intensity * 0.5;
+        if (abs($adjust) >= 5) { // Ne rien faire si ajustement < 5
+            imagefilter($resultImage, IMG_FILTER_BRIGHTNESS, round($adjust));
         }
     }
     
-    // 5. NE PAS appliquer de réduction de bruit car elle dégrade la qualité
-    // imagefilter($resultImage, IMG_FILTER_SMOOTH, 1); // DÉSACTIVÉ
+    // 2. Contraste (très subtil)
+    if ($applyContrast && $analysis['needs_contrast']) {
+        $adjust = $analysis['contrast_adjust'] * $intensity * 0.4;
+        if (abs($adjust) >= 3) {
+            imagefilter($resultImage, IMG_FILTER_CONTRAST, round($adjust));
+        }
+    }
     
-    // Sauvegarder le résultat
+    // 3. Saturation (minimal)
+    if ($applySaturation && $analysis['needs_saturation']) {
+        $adjust = $analysis['saturation_adjust'] * $intensity;
+        if (abs($adjust) >= 5) {
+            // Ajustement très subtil de la saturation
+            adjustSaturationSubtle($resultImage, $width, $height, $adjust);
+        }
+    }
+    
+    // 4. Netteté (optionnel et très léger)
+    if ($applySharpness && $intensity > 0.5) {
+        // Netteté ultra-légère
+        $matrix = [
+            [-1, -1, -1],
+            [-1, 16, -1],
+            [-1, -1, -1]
+        ];
+        imageconvolution($resultImage, $matrix, 8, 0);
+    }
+    
+    // Sauvegarder selon le format original
     $tempDir = '../uploads/temp';
     if (!is_dir($tempDir)) {
         mkdir($tempDir, 0755, true);
     }
     
-    $tempFilename = 'ai_enhanced_' . uniqid() . '.jpg';
+    $originalExt = strtolower(pathinfo($image['filename'], PATHINFO_EXTENSION));
+    $tempFilename = 'ai_enhanced_' . uniqid() . '.' . $originalExt;
     $tempPath = $tempDir . '/' . $tempFilename;
     
-    // Sauvegarder avec qualité maximale (98%) pour préserver les détails
-    imagejpeg($resultImage, $tempPath, 98);
+    // Sauvegarder avec qualité maximale
+    switch ($type) {
+        case IMAGETYPE_JPEG:
+            imagejpeg($resultImage, $tempPath, 95); // Qualité 95 au lieu de 98 pour équilibrer taille/qualité
+            break;
+        case IMAGETYPE_PNG:
+            imagepng($resultImage, $tempPath, 6); // Compression 6/9 pour équilibrer
+            break;
+        case IMAGETYPE_GIF:
+            imagegif($resultImage, $tempPath);
+            break;
+        case IMAGETYPE_WEBP:
+            imagewebp($resultImage, $tempPath, 95);
+            break;
+    }
     
-    // Libérer la mémoire
     imagedestroy($sourceImage);
     imagedestroy($resultImage);
     
@@ -154,15 +164,15 @@ try {
     echo json_encode([
         'success' => true,
         'processed_image' => $relativePath,
-        'filename' => pathinfo($image['filename'], PATHINFO_FILENAME) . '_enhanced.jpg',
+        'filename' => pathinfo($image['filename'], PATHINFO_FILENAME) . '_enhanced.' . $originalExt,
         'original_size' => filesize($fullPath),
         'processed_size' => filesize($tempPath),
         'analysis' => [
-            'brightness_adjusted' => $analysis['needs_brightness_adjustment'],
-            'contrast_adjusted' => $analysis['needs_contrast_adjustment'],
-            'saturation_adjusted' => $analysis['needs_saturation_adjustment'],
-            'average_brightness' => round($analysis['avg_brightness'], 2),
-            'contrast_level' => round($analysis['contrast_level'], 2)
+            'brightness_adjusted' => $analysis['needs_brightness'],
+            'contrast_adjusted' => $analysis['needs_contrast'],
+            'saturation_adjusted' => $analysis['needs_saturation'],
+            'avg_brightness' => round($analysis['avg_brightness'], 2),
+            'recommendations' => $analysis['recommendations']
         ]
     ]);
     
@@ -174,15 +184,15 @@ try {
 }
 
 /**
- * Analyser l'image pour déterminer les corrections nécessaires
+ * Analyser l'image - Version optimisée avec seuils stricts
  */
 function analyzeImage($image, $width, $height) {
     $totalBrightness = 0;
     $pixelCount = 0;
-    $rgbValues = ['r' => [], 'g' => [], 'b' => []];
+    $brightnessValues = [];
     
-    // Échantillonnage tous les 5 pixels pour la performance
-    $step = max(1, min($width, $height) / 100);
+    // Échantillonnage tous les 10 pixels pour la performance
+    $step = max(5, min($width, $height) / 50);
     
     for ($x = 0; $x < $width; $x += $step) {
         for ($y = 0; $y < $height; $y += $step) {
@@ -193,201 +203,125 @@ function analyzeImage($image, $width, $height) {
             
             $brightness = ($r + $g + $b) / 3;
             $totalBrightness += $brightness;
+            $brightnessValues[] = $brightness;
             $pixelCount++;
-            
-            $rgbValues['r'][] = $r;
-            $rgbValues['g'][] = $g;
-            $rgbValues['b'][] = $b;
         }
     }
     
     $avgBrightness = $totalBrightness / $pixelCount;
     
-    // Calculer le contraste (écart-type de la luminosité)
+    // Calculer l'écart-type (contraste)
     $variance = 0;
-    for ($x = 0; $x < $width; $x += $step) {
-        for ($y = 0; $y < $height; $y += $step) {
-            $rgb = imagecolorat($image, $x, $y);
-            $r = ($rgb >> 16) & 0xFF;
-            $g = ($rgb >> 8) & 0xFF;
-            $b = $rgb & 0xFF;
-            $brightness = ($r + $g + $b) / 3;
-            
-            $variance += pow($brightness - $avgBrightness, 2);
-        }
+    foreach ($brightnessValues as $b) {
+        $variance += pow($b - $avgBrightness, 2);
     }
     $stdDev = sqrt($variance / $pixelCount);
-    $contrastLevel = $stdDev / 127.5; // Normaliser
+    $contrastLevel = $stdDev / 127.5;
     
-    // Calculer la saturation moyenne
-    $avgSaturation = 0;
-    foreach ($rgbValues['r'] as $i => $r) {
-        $g = $rgbValues['g'][$i];
-        $b = $rgbValues['b'][$i];
-        
-        $max = max($r, $g, $b);
-        $min = min($r, $g, $b);
-        
-        if ($max > 0) {
-            $avgSaturation += ($max - $min) / $max;
-        }
-    }
-    $avgSaturation /= count($rgbValues['r']);
-    
-    // Déterminer les ajustements nécessaires
+    // Décisions avec seuils TRÈS stricts (intervenir seulement si vraiment nécessaire)
     $analysis = [
         'avg_brightness' => $avgBrightness,
         'contrast_level' => $contrastLevel,
-        'avg_saturation' => $avgSaturation,
-        'needs_brightness_adjustment' => false,
-        'brightness_adjustment' => 0,
-        'needs_contrast_adjustment' => false,
-        'contrast_adjustment' => 0,
-        'needs_saturation_adjustment' => false,
-        'saturation_adjustment' => 0
+        'needs_brightness' => false,
+        'brightness_adjust' => 0,
+        'needs_contrast' => false,
+        'contrast_adjust' => 0,
+        'needs_saturation' => false,
+        'saturation_adjust' => 0,
+        'recommendations' => []
     ];
     
-    // Luminosité : idéal autour de 127 (milieu) - seuils plus stricts
-    if ($avgBrightness < 80) {
-        // Image TRÈS sombre (seuil abaissé de 100 à 80)
-        $analysis['needs_brightness_adjustment'] = true;
-        $analysis['brightness_adjustment'] = (127 - $avgBrightness) * 0.3; // Réduit de 0.5 à 0.3
-    } elseif ($avgBrightness > 200) {
-        // Image TRÈS claire (seuil relevé de 180 à 200)
-        $analysis['needs_brightness_adjustment'] = true;
-        $analysis['brightness_adjustment'] = (127 - $avgBrightness) * 0.2; // Réduit de 0.3 à 0.2
+    // Luminosité : intervenir seulement si VRAIMENT sombre ou clair
+    if ($avgBrightness < 60) {
+        // Image extrêmement sombre
+        $analysis['needs_brightness'] = true;
+        $analysis['brightness_adjust'] = (100 - $avgBrightness) * 0.4;
+        $analysis['recommendations'][] = 'Luminosité augmentée';
+    } elseif ($avgBrightness > 220) {
+        // Image extrêmement claire
+        $analysis['needs_brightness'] = true;
+        $analysis['brightness_adjust'] = (150 - $avgBrightness) * 0.3;
+        $analysis['recommendations'][] = 'Luminosité réduite';
     }
     
-    // Contraste : idéal entre 0.3 et 0.6 - seuils plus stricts
-    if ($contrastLevel < 0.2) {
-        // Contraste TRÈS faible (seuil abaissé de 0.25 à 0.2)
-        $analysis['needs_contrast_adjustment'] = true;
-        $analysis['contrast_adjustment'] = -10; // Réduit de -15 à -10
-    } elseif ($contrastLevel > 0.8) {
-        // Contraste TRÈS élevé (seuil relevé de 0.7 à 0.8)
-        $analysis['needs_contrast_adjustment'] = true;
-        $analysis['contrast_adjustment'] = 8; // Réduit de 10 à 8
+    // Contraste : intervenir seulement si extrême
+    if ($contrastLevel < 0.15) {
+        // Contraste extrêmement faible
+        $analysis['needs_contrast'] = true;
+        $analysis['contrast_adjust'] = -8;
+        $analysis['recommendations'][] = 'Contraste augmenté';
+    } elseif ($contrastLevel > 0.85) {
+        // Contraste extrêmement élevé
+        $analysis['needs_contrast'] = true;
+        $analysis['contrast_adjust'] = 5;
+        $analysis['recommendations'][] = 'Contraste réduit';
     }
     
-    // Saturation : idéal autour de 0.3-0.5 - seuils plus stricts
-    if ($avgSaturation < 0.15) {
-        // Image TRÈS désaturée (seuil abaissé de 0.2 à 0.15)
-        $analysis['needs_saturation_adjustment'] = true;
-        $analysis['saturation_adjustment'] = 0.15; // Réduit de 0.2 à 0.15
-    } elseif ($avgSaturation > 0.8) {
-        // Image TRÈS saturée (seuil relevé de 0.7 à 0.8)
-        $analysis['needs_saturation_adjustment'] = true;
-        $analysis['saturation_adjustment'] = -0.1; // Réduit de -0.15 à -0.1
+    // Saturation : rarement nécessaire
+    // On ne touche pas sauf si l'utilisateur le demande explicitement
+    
+    if (empty($analysis['recommendations'])) {
+        $analysis['recommendations'][] = 'Image déjà bien équilibrée';
     }
     
     return $analysis;
 }
 
 /**
- * Ajuster la saturation de l'image de manière optimisée
+ * Ajuster subtilement la saturation
  */
-function adjustSaturation(&$image, $width, $height, $factor) {
-    // Si le facteur est très proche de 1, ne rien faire (évite traitement inutile)
-    if (abs($factor - 1) < 0.05) {
-        return;
+function adjustSaturationSubtle(&$image, $width, $height, $adjustment) {
+    // Ajustement minimal pour éviter la dégradation
+    $factor = 1 + ($adjustment / 100);
+    
+    // Limiter l'ajustement entre 0.95 et 1.05 (max 5%)
+    $factor = max(0.95, min(1.05, $factor));
+    
+    if (abs($factor - 1) < 0.02) {
+        return; // Trop faible, ne rien faire
     }
     
-    // Échantillonnage pour grandes images (améliore la vitesse et préserve la qualité)
-    $step = 1;
-    if ($width * $height > 1000000) { // Images > 1MP
-        $step = 2; // Traiter 1 pixel sur 2
-    }
-    
-    for ($x = 0; $x < $width; $x += $step) {
-        for ($y = 0; $y < $height; $y += $step) {
+    for ($x = 0; $x < $width; $x++) {
+        for ($y = 0; $y < $height; $y++) {
             $rgb = imagecolorat($image, $x, $y);
-            $alpha = ($rgb >> 24) & 0xFF;
             $r = ($rgb >> 16) & 0xFF;
             $g = ($rgb >> 8) & 0xFF;
             $b = $rgb & 0xFF;
             
-            // Convertir en HSL, ajuster S, reconvertir en RGB
-            $hsl = rgbToHsl($r, $g, $b);
-            $hsl['s'] = max(0, min(1, $hsl['s'] * $factor));
-            $newRgb = hslToRgb($hsl['h'], $hsl['s'], $hsl['l']);
+            // Convertir en HSL
+            $max = max($r, $g, $b);
+            $min = min($r, $g, $b);
+            $l = ($max + $min) / 2;
             
-            $color = imagecolorallocatealpha($image, $newRgb['r'], $newRgb['g'], $newRgb['b'], $alpha);
-            
-            // Si échantillonnage, appliquer au bloc 2x2
-            if ($step > 1) {
-                for ($dx = 0; $dx < $step && ($x + $dx) < $width; $dx++) {
-                    for ($dy = 0; $dy < $step && ($y + $dy) < $height; $dy++) {
-                        imagesetpixel($image, $x + $dx, $y + $dy, $color);
-                    }
-                }
-            } else {
-                imagesetpixel($image, $x, $y, $color);
+            if ($max == $min) {
+                continue; // Gris, pas de saturation
             }
+            
+            $d = $max - $min;
+            $s = $l > 127.5 ? $d / (510 - $max - $min) : $d / ($max + $min);
+            
+            // Ajuster la saturation
+            $s *= $factor;
+            $s = max(0, min(1, $s));
+            
+            // Reconvertir en RGB (simplifié)
+            if ($l < 127.5) {
+                $temp = $l * (1 + $s) / 127.5;
+            } else {
+                $temp = ($l + (255 - $l) * $s) / 127.5;
+            }
+            
+            $r = (int)($r * $temp);
+            $g = (int)($g * $temp);
+            $b = (int)($b * $temp);
+            
+            $r = max(0, min(255, $r));
+            $g = max(0, min(255, $g));
+            $b = max(0, min(255, $b));
+            
+            $color = imagecolorallocate($image, $r, $g, $b);
+            imagesetpixel($image, $x, $y, $color);
         }
     }
 }
-
-/**
- * Convertir RGB en HSL
- */
-function rgbToHsl($r, $g, $b) {
-    $r /= 255;
-    $g /= 255;
-    $b /= 255;
-    
-    $max = max($r, $g, $b);
-    $min = min($r, $g, $b);
-    $l = ($max + $min) / 2;
-    
-    if ($max == $min) {
-        $h = $s = 0;
-    } else {
-        $d = $max - $min;
-        $s = $l > 0.5 ? $d / (2 - $max - $min) : $d / ($max + $min);
-        
-        switch ($max) {
-            case $r:
-                $h = (($g - $b) / $d + ($g < $b ? 6 : 0)) / 6;
-                break;
-            case $g:
-                $h = (($b - $r) / $d + 2) / 6;
-                break;
-            case $b:
-                $h = (($r - $g) / $d + 4) / 6;
-                break;
-        }
-    }
-    
-    return ['h' => $h, 's' => $s, 'l' => $l];
-}
-
-/**
- * Convertir HSL en RGB
- */
-function hslToRgb($h, $s, $l) {
-    if ($s == 0) {
-        $r = $g = $b = $l;
-    } else {
-        $q = $l < 0.5 ? $l * (1 + $s) : $l + $s - $l * $s;
-        $p = 2 * $l - $q;
-        
-        $r = hueToRgb($p, $q, $h + 1/3);
-        $g = hueToRgb($p, $q, $h);
-        $b = hueToRgb($p, $q, $h - 1/3);
-    }
-    
-    return [
-        'r' => round($r * 255),
-        'g' => round($g * 255),
-        'b' => round($b * 255)
-    ];
-}
-
-function hueToRgb($p, $q, $t) {
-    if ($t < 0) $t += 1;
-    if ($t > 1) $t -= 1;
-    if ($t < 1/6) return $p + ($q - $p) * 6 * $t;
-    if ($t < 1/2) return $q;
-    if ($t < 2/3) return $p + ($q - $p) * (2/3 - $t) * 6;
-    return $p;
-}
+?>
