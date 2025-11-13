@@ -279,36 +279,13 @@ require_once 'header.php';
         display: block;
     }
     
+    .ai-option select,
     .ai-option input[type="range"] {
         width: 100%;
-        height: 8px;
-        border-radius: 4px;
-        background: #cbd5e0;
-        outline: none;
-    }
-    
-    .ai-option input[type="range"]::-webkit-slider-thumb {
-        width: 20px;
-        height: 20px;
-        border-radius: 50%;
-        background: #667eea;
-        cursor: pointer;
-    }
-    
-    .ai-option select {
-        width: 100%;
-        padding: 12px;
+        padding: 10px;
         border: 2px solid #e2e8f0;
         border-radius: 8px;
         font-size: 1em;
-        background: white;
-        cursor: pointer;
-        transition: border-color 0.3s;
-    }
-    
-    .ai-option select:focus {
-        outline: none;
-        border-color: #667eea;
     }
     
     .btn-primary {
@@ -320,12 +297,12 @@ require_once 'header.php';
         font-size: 1.1em;
         font-weight: 600;
         cursor: pointer;
-        transition: all 0.3s ease;
         width: 100%;
+        transition: all 0.3s ease;
         box-shadow: 0 4px 15px rgba(102, 126, 234, 0.3);
     }
     
-    .btn-primary:hover {
+    .btn-primary:hover:not(:disabled) {
         transform: translateY(-2px);
         box-shadow: 0 6px 20px rgba(102, 126, 234, 0.4);
     }
@@ -333,21 +310,20 @@ require_once 'header.php';
     .btn-primary:disabled {
         opacity: 0.5;
         cursor: not-allowed;
-        transform: none;
     }
     
     .processing-indicator {
         display: none;
         text-align: center;
-        padding: 30px;
+        padding: 40px;
     }
     
     .spinner {
-        border: 4px solid #f3f3f3;
-        border-top: 4px solid #667eea;
-        border-radius: 50%;
         width: 50px;
         height: 50px;
+        border: 4px solid #f3f4f6;
+        border-top: 4px solid #667eea;
+        border-radius: 50%;
         animation: spin 1s linear infinite;
         margin: 0 auto 20px;
     }
@@ -359,7 +335,6 @@ require_once 'header.php';
     
     .result-container {
         display: none;
-        margin-top: 30px;
         padding: 25px;
         background: #f7fafc;
         border-radius: 12px;
@@ -392,6 +367,7 @@ require_once 'header.php';
         display: flex;
         gap: 10px;
         justify-content: center;
+        flex-wrap: wrap;
     }
     
     .btn-secondary {
@@ -421,6 +397,10 @@ require_once 'header.php';
         
         .result-images {
             grid-template-columns: 1fr;
+        }
+        
+        .result-actions {
+            flex-direction: column;
         }
     }
 </style>
@@ -589,6 +569,9 @@ require_once 'header.php';
                 </div>
             </div>
             <div class="result-actions">
+                <button class="btn-secondary" onclick="continueEditing()">
+                    🔄 Nouvelle modification
+                </button>
                 <button class="btn-secondary" onclick="downloadResult()">
                     💾 Télécharger
                 </button>
@@ -618,17 +601,17 @@ function openAITool(tool) {
                     <label class="ai-option-label">Type de détection</label>
                     <select id="detectionMode">
                         <option value="auto">Automatique (recommandé)</option>
-                        <option value="person">Portrait / Personne</option>
-                        <option value="product">Produit</option>
-                        <option value="animal">Animal</option>
+                        <option value="person">Personne / Portrait</option>
+                        <option value="product">Produit / Objet</option>
+                        <option value="graphic">Graphique / Logo</option>
                     </select>
                 </div>
                 <div class="ai-option">
-                    <label class="ai-option-label">Qualité des bords</label>
+                    <label class="ai-option-label">Qualité des contours</label>
                     <select id="edgeQuality">
-                        <option value="high">Haute (plus lent)</option>
-                        <option value="medium" selected>Moyenne (équilibré)</option>
                         <option value="low">Rapide</option>
+                        <option value="medium" selected>Équilibrée</option>
+                        <option value="high">Précise (plus lent)</option>
                     </select>
                 </div>
             `
@@ -638,32 +621,17 @@ function openAITool(tool) {
             title: 'Amélioration automatique',
             options: `
                 <div class="ai-option">
-                    <label class="ai-option-label">
-                        Intensité de l'amélioration: <span id="intensityValue">50%</span>
-                    </label>
-                    <input type="range" id="enhanceIntensity" min="0" max="100" value="50" 
-                           oninput="document.getElementById('intensityValue').textContent = this.value + '%'">
-                </div>
-                <div class="ai-option">
-                    <label class="ai-option-label">Corrections à appliquer</label>
-                    <div style="display: grid; gap: 10px;">
-                        <label style="display: flex; align-items: center; gap: 10px;">
-                            <input type="checkbox" id="enhanceBrightness" checked>
-                            <span>Luminosité</span>
-                        </label>
-                        <label style="display: flex; align-items: center; gap: 10px;">
-                            <input type="checkbox" id="enhanceContrast" checked>
-                            <span>Contraste</span>
-                        </label>
-                        <label style="display: flex; align-items: center; gap: 10px;">
-                            <input type="checkbox" id="enhanceSaturation" checked>
-                            <span>Saturation</span>
-                        </label>
-                        <label style="display: flex; align-items: center; gap: 10px;">
-                            <input type="checkbox" id="enhanceSharpness" checked>
-                            <span>Netteté</span>
-                        </label>
-                    </div>
+                    <label class="ai-option-label">Intensité</label>
+                    <select id="enhanceIntensity">
+                        <option value="30">Subtile (30%)</option>
+                        <option value="50">Modérée (50%)</option>
+                        <option value="70" selected>Équilibrée (70%) - Recommandé</option>
+                        <option value="85">Forte (85%)</option>
+                        <option value="100">Maximale (100%)</option>
+                    </select>
+                    <p style="font-size: 0.85em; color: #718096; margin-top: 8px;">
+                        L'IA optimise automatiquement la luminosité, le contraste, les couleurs et la netteté
+                    </p>
                 </div>
             `
         },
@@ -674,21 +642,19 @@ function openAITool(tool) {
                 <div class="ai-option">
                     <label class="ai-option-label">Format de sortie</label>
                     <select id="cropAspectRatio">
-                        <option value="auto">Automatique (optimal)</option>
-                        <option value="1:1">Carré (1:1) - Instagram</option>
-                        <option value="16:9">Paysage (16:9) - YouTube</option>
-                        <option value="9:16">Portrait (9:16) - Stories</option>
+                        <option value="auto">Automatique (détecté)</option>
+                        <option value="1:1">Carré (1:1)</option>
                         <option value="4:3">Standard (4:3)</option>
-                        <option value="21:9">Cinéma (21:9)</option>
+                        <option value="16:9">Panoramique (16:9)</option>
+                        <option value="9:16">Story (9:16)</option>
                     </select>
                 </div>
                 <div class="ai-option">
                     <label class="ai-option-label">Priorité de détection</label>
                     <select id="detectionPriority">
-                        <option value="face">Visages</option>
                         <option value="subject">Sujet principal</option>
+                        <option value="face">Visage</option>
                         <option value="center">Centre de l'image</option>
-                        <option value="rule-thirds">Règle des tiers</option>
                     </select>
                 </div>
             `
@@ -698,10 +664,8 @@ function openAITool(tool) {
             title: 'Compression intelligente',
             options: `
                 <div class="ai-option">
-                    <label class="ai-option-label">
-                        Qualité: <span id="qualityValue">80%</span>
-                    </label>
-                    <input type="range" id="optimizeQuality" min="60" max="100" value="80" 
+                    <label class="ai-option-label">Qualité: <span id="qualityValue">80%</span></label>
+                    <input type="range" id="optimizeQuality" min="50" max="100" value="80" 
                            oninput="document.getElementById('qualityValue').textContent = this.value + '%'">
                     <p style="font-size: 0.85em; color: #718096; margin-top: 5px;">
                         Plus la qualité est élevée, plus le fichier sera volumineux
@@ -740,8 +704,10 @@ function openAITool(tool) {
     selectedImageId = null;
     selectedImagePath = null;
     document.getElementById('processBtn').disabled = true;
+    document.getElementById('processBtn').innerHTML = '🚀 Traiter l\'image';
     document.getElementById('processingIndicator').style.display = 'none';
     document.getElementById('resultContainer').style.display = 'none';
+    processedImageData = null;
     
     // Retirer la sélection de toutes les images
     document.querySelectorAll('.image-item').forEach(item => {
@@ -778,6 +744,7 @@ async function processAI() {
     // Afficher l'indicateur de traitement
     document.getElementById('processBtn').style.display = 'none';
     document.getElementById('processingIndicator').style.display = 'block';
+    document.getElementById('resultContainer').style.display = 'none';
     
     try {
         const response = await fetch(`api/ai-${currentTool}.php`, {
@@ -817,11 +784,12 @@ function getToolOptions() {
             break;
             
         case 'enhance':
-            options.intensity = parseInt(document.getElementById('enhanceIntensity')?.value || 50);
-            options.brightness = document.getElementById('enhanceBrightness')?.checked || false;
-            options.contrast = document.getElementById('enhanceContrast')?.checked || false;
-            options.saturation = document.getElementById('enhanceSaturation')?.checked || false;
-            options.sharpness = document.getElementById('enhanceSharpness')?.checked || false;
+            options.intensity = parseInt(document.getElementById('enhanceIntensity')?.value || 70);
+            // ⭐ TOUTES les améliorations sont activées automatiquement
+            options.brightness = true;
+            options.contrast = true;
+            options.saturation = true;
+            options.sharpness = true; // ⭐ Netteté TOUJOURS activée
             break;
             
         case 'smart-crop':
@@ -839,6 +807,23 @@ function getToolOptions() {
     return options;
 }
 
+// ⭐ NOUVELLE FONCTION: Permet de continuer à modifier après avoir vu un résultat
+function continueEditing() {
+    // Cacher le résultat
+    document.getElementById('resultContainer').style.display = 'none';
+    
+    // Réafficher le bouton de traitement
+    document.getElementById('processBtn').style.display = 'block';
+    document.getElementById('processBtn').innerHTML = '🚀 Traiter l\'image';
+    document.getElementById('processBtn').disabled = false;
+    
+    // Réinitialiser les données du résultat
+    processedImageData = null;
+    
+    console.log('✅ Prêt pour un nouveau traitement');
+}
+
+// ⭐ FONCTION MODIFIÉE: Affiche le résultat ET permet de continuer
 function showResult(data) {
     document.getElementById('processingIndicator').style.display = 'none';
     document.getElementById('resultContainer').style.display = 'block';
@@ -847,13 +832,24 @@ function showResult(data) {
     document.getElementById('processedImage').src = data.processed_image;
     
     processedImageData = data;
+    
+    // ⭐ IMPORTANT: Réafficher le bouton pour permettre d'appliquer un autre effet
+    document.getElementById('processBtn').style.display = 'block';
+    document.getElementById('processBtn').innerHTML = '🔄 Appliquer un autre effet';
+    document.getElementById('processBtn').disabled = false;
 }
 
+// ⭐ FONCTION MODIFIÉE: Réinitialisation complète
 function resetModal() {
     document.getElementById('processBtn').style.display = 'block';
+    document.getElementById('processBtn').innerHTML = '🚀 Traiter l\'image';
+    document.getElementById('processBtn').disabled = selectedImageId === null;
     document.getElementById('processingIndicator').style.display = 'none';
+    document.getElementById('resultContainer').style.display = 'none';
+    processedImageData = null;
 }
 
+// ⭐ FONCTION MODIFIÉE: Proposer de continuer après téléchargement
 function downloadResult() {
     if (!processedImageData) return;
     
@@ -861,8 +857,16 @@ function downloadResult() {
     link.href = processedImageData.processed_image;
     link.download = processedImageData.filename || 'ai-processed.jpg';
     link.click();
+    
+    // ⭐ NOUVEAU: Proposer de continuer après téléchargement
+    setTimeout(() => {
+        if (confirm('📥 Image téléchargée !\n\nVoulez-vous continuer à appliquer d\'autres effets ?')) {
+            continueEditing();
+        }
+    }, 500);
 }
 
+// ⭐ FONCTION MODIFIÉE: Proposer de continuer après sauvegarde
 async function saveResult() {
     if (!processedImageData) return;
     
@@ -882,10 +886,13 @@ async function saveResult() {
         const data = await response.json();
         
         if (data.success) {
-            alert('✅ Image sauvegardée avec succès !');
-            closeAIModal();
-            // Optionnel : recharger la page pour voir la nouvelle image
-            setTimeout(() => location.reload(), 1000);
+            // ⭐ NOUVEAU: Demander si on veut continuer ou fermer
+            if (confirm('✅ Image sauvegardée avec succès !\n\nVoulez-vous continuer à appliquer d\'autres effets ?')) {
+                continueEditing();
+            } else {
+                closeAIModal();
+                setTimeout(() => location.reload(), 500);
+            }
         } else {
             alert('❌ Erreur lors de la sauvegarde: ' + data.error);
         }
