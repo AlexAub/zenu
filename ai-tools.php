@@ -25,7 +25,6 @@ $images = $stmt->fetchAll();
 
 require_once 'header.php';
 ?>
-
 <style>
     .ai-container {
         max-width: 1400px;
@@ -81,6 +80,16 @@ require_once 'header.php';
         border-color: #667eea;
     }
     
+    .ai-tool-card.disabled {
+        opacity: 0.6;
+        cursor: not-allowed;
+    }
+    
+    .ai-tool-card.disabled:hover {
+        transform: none;
+        border-color: transparent;
+    }
+    
     .ai-tool-icon {
         font-size: 3em;
         margin-bottom: 15px;
@@ -103,109 +112,102 @@ require_once 'header.php';
     
     .ai-tool-badge {
         display: inline-block;
-        padding: 5px 12px;
         background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
         color: white;
+        padding: 5px 12px;
         border-radius: 20px;
         font-size: 0.75em;
         font-weight: 600;
-        text-transform: uppercase;
-        letter-spacing: 0.5px;
+        margin-bottom: 10px;
     }
     
     .ai-tool-status {
-        margin-top: 15px;
-        padding: 10px;
-        border-radius: 8px;
         font-size: 0.85em;
         font-weight: 600;
+        padding: 8px 12px;
+        border-radius: 8px;
+        display: inline-block;
+        margin-top: 10px;
     }
     
     .status-available {
-        background: #c6f6d5;
+        background: #e6ffed;
         color: #22543d;
     }
     
-    .status-beta {
-        background: #fef3c7;
-        color: #78350f;
-    }
-    
     .status-soon {
-        background: #e0e7ff;
-        color: #3730a3;
+        background: #fff8e6;
+        color: #744210;
     }
     
-    /* Modal */
+    /* Modal styles */
     .ai-modal {
         display: none;
         position: fixed;
         top: 0;
         left: 0;
-        right: 0;
-        bottom: 0;
+        width: 100%;
+        height: 100%;
         background: rgba(0, 0, 0, 0.7);
         z-index: 10000;
-        backdrop-filter: blur(5px);
+        overflow-y: auto;
+        padding: 20px;
     }
     
     .ai-modal-content {
-        position: absolute;
-        top: 50%;
-        left: 50%;
-        transform: translate(-50%, -50%);
         background: white;
+        max-width: 1200px;
+        margin: 40px auto;
         border-radius: 20px;
-        padding: 40px;
-        max-width: 900px;
-        width: 90%;
-        max-height: 90vh;
-        overflow-y: auto;
         box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
     }
     
     .ai-modal-header {
+        padding: 30px;
+        border-bottom: 2px solid #f0f0f0;
         display: flex;
         justify-content: space-between;
         align-items: center;
-        margin-bottom: 30px;
-        padding-bottom: 20px;
-        border-bottom: 2px solid #e2e8f0;
     }
     
     .ai-modal-title {
-        font-size: 2em;
-        font-weight: 700;
-        color: #2d3748;
         display: flex;
         align-items: center;
         gap: 15px;
+        font-size: 1.8em;
+        font-weight: 700;
+        color: #2d3748;
     }
     
     .close-modal {
-        font-size: 2em;
-        color: #a0aec0;
-        cursor: pointer;
         background: none;
         border: none;
+        font-size: 2em;
+        cursor: pointer;
+        color: #a0aec0;
+        transition: color 0.3s;
         padding: 0;
-        line-height: 1;
-        transition: color 0.2s;
+        width: 40px;
+        height: 40px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
     }
     
     .close-modal:hover {
-        color: #667eea;
+        color: #2d3748;
     }
     
+    /* Image selector */
     .image-selector {
-        margin-bottom: 30px;
+        padding: 30px;
     }
     
     .image-selector-label {
-        font-size: 1.1em;
+        font-size: 1.2em;
         font-weight: 600;
         color: #2d3748;
-        margin-bottom: 15px;
+        margin-bottom: 20px;
         display: block;
     }
     
@@ -213,21 +215,21 @@ require_once 'header.php';
         display: grid;
         grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
         gap: 15px;
-        max-height: 300px;
+        max-height: 400px;
         overflow-y: auto;
         padding: 10px;
-        background: #f7fafc;
+        border: 2px dashed #e0e0e0;
         border-radius: 12px;
     }
     
     .image-item {
         position: relative;
-        aspect-ratio: 1;
+        cursor: pointer;
         border-radius: 10px;
         overflow: hidden;
-        cursor: pointer;
         border: 3px solid transparent;
         transition: all 0.3s ease;
+        aspect-ratio: 1;
     }
     
     .image-item:hover {
@@ -255,17 +257,14 @@ require_once 'header.php';
         color: white;
         padding: 8px;
         font-size: 0.75em;
-        text-align: center;
         white-space: nowrap;
         overflow: hidden;
         text-overflow: ellipsis;
     }
     
+    /* AI Options */
     .ai-options {
-        margin: 30px 0;
-        padding: 25px;
-        background: #f7fafc;
-        border-radius: 12px;
+        padding: 0 30px 20px;
     }
     
     .ai-option {
@@ -273,21 +272,26 @@ require_once 'header.php';
     }
     
     .ai-option-label {
+        display: block;
         font-weight: 600;
         color: #2d3748;
-        margin-bottom: 10px;
-        display: block;
+        margin-bottom: 8px;
     }
     
     .ai-option select,
     .ai-option input[type="range"] {
         width: 100%;
         padding: 10px;
-        border: 2px solid #e2e8f0;
+        border: 2px solid #e0e0e0;
         border-radius: 8px;
         font-size: 1em;
     }
     
+    .ai-option input[type="range"] {
+        padding: 0;
+    }
+    
+    /* Process button */
     .btn-primary {
         background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
         color: white;
@@ -297,14 +301,14 @@ require_once 'header.php';
         font-size: 1.1em;
         font-weight: 600;
         cursor: pointer;
-        width: 100%;
+        width: calc(100% - 60px);
+        margin: 0 30px 30px;
         transition: all 0.3s ease;
-        box-shadow: 0 4px 15px rgba(102, 126, 234, 0.3);
     }
     
     .btn-primary:hover:not(:disabled) {
         transform: translateY(-2px);
-        box-shadow: 0 6px 20px rgba(102, 126, 234, 0.4);
+        box-shadow: 0 8px 20px rgba(102, 126, 234, 0.3);
     }
     
     .btn-primary:disabled {
@@ -312,18 +316,19 @@ require_once 'header.php';
         cursor: not-allowed;
     }
     
+    /* Processing indicator */
     .processing-indicator {
         display: none;
         text-align: center;
-        padding: 40px;
+        padding: 40px 30px;
     }
     
     .spinner {
-        width: 50px;
-        height: 50px;
-        border: 4px solid #f3f4f6;
+        border: 4px solid #f3f3f3;
         border-top: 4px solid #667eea;
         border-radius: 50%;
+        width: 50px;
+        height: 50px;
         animation: spin 1s linear infinite;
         margin: 0 auto 20px;
     }
@@ -333,11 +338,10 @@ require_once 'header.php';
         100% { transform: rotate(360deg); }
     }
     
+    /* Result container */
     .result-container {
         display: none;
-        padding: 25px;
-        background: #f7fafc;
-        border-radius: 12px;
+        padding: 30px;
     }
     
     .result-images {
@@ -471,22 +475,22 @@ require_once 'header.php';
             </div>
         </div>
         
-        <!-- Upscaling (à venir) -->
-        <div class="ai-tool-card" style="opacity: 0.6; cursor: not-allowed;">
+        <!-- Upscaling - MAINTENANT DISPONIBLE -->
+        <div class="ai-tool-card" onclick="openAITool('upscale')">
             <span class="ai-tool-icon">🔍</span>
             <div class="ai-tool-title">Agrandissement IA</div>
             <div class="ai-tool-description">
                 Augmentez la résolution de vos images jusqu'à 4x sans perte de qualité. 
-                Super-résolution par deep learning.
+                Super-résolution par algorithmes avancés.
             </div>
-            <span class="ai-tool-badge">IA Deep Learning</span>
-            <div class="ai-tool-status status-soon">
-                🚀 Bientôt disponible
+            <span class="ai-tool-badge">IA Super-Resolution</span>
+            <div class="ai-tool-status status-available">
+                ✓ Disponible
             </div>
         </div>
         
-        <!-- Colorisation (à venir) -->
-        <div class="ai-tool-card" style="opacity: 0.6; cursor: not-allowed;">
+        <!-- Colorisation (toujours à venir) -->
+        <div class="ai-tool-card disabled">
             <span class="ai-tool-icon">🎨</span>
             <div class="ai-tool-title">Colorisation auto</div>
             <div class="ai-tool-description">
@@ -531,6 +535,8 @@ require_once 'header.php';
                         <div class="image-item" 
                              data-id="<?= $image['id'] ?>"
                              data-path="<?= htmlspecialchars($image['file_path']) ?>"
+                             data-width="<?= $image['width'] ?>"
+                             data-height="<?= $image['height'] ?>"
                              onclick="selectImage(this)">
                             <img src="<?= htmlspecialchars($image['thumbnail_path'] ?? $image['file_path']) ?>" 
                                  alt="<?= htmlspecialchars($image['original_filename'] ?? $image['filename']) ?>">
@@ -579,13 +585,13 @@ require_once 'header.php';
                     ✓ Sauvegarder dans mon compte
                 </button>
             </div>
-        </div>
-    </div>
-</div>
 
 <script>
+
 let selectedImageId = null;
 let selectedImagePath = null;
+let selectedImageWidth = null;
+let selectedImageHeight = null;
 let currentTool = null;
 let processedImageData = null;
 
@@ -680,11 +686,53 @@ function openAITool(tool) {
                         <option value="png">PNG</option>
                     </select>
                 </div>
+            `
+        },
+        'upscale': {
+            icon: '🔍',
+            title: 'Agrandissement IA',
+            options: `
+                <div class="ai-option">
+                    <label class="ai-option-label">Facteur d'agrandissement</label>
+                    <select id="scaleFactor">
+                        <option value="1.5">1.5x (50% plus grand)</option>
+                        <option value="2.0" selected>2x (Double la taille)</option>
+                        <option value="3.0">3x (Triple la taille)</option>
+                        <option value="4.0">4x (Quadruple la taille)</option>
+                    </select>
+                    <p id="scaleInfo" style="font-size: 0.85em; color: #718096; margin-top: 8px;">
+                        Sélectionnez une image pour voir les dimensions finales
+                    </p>
+                </div>
+                <div class="ai-option">
+                    <label class="ai-option-label">Qualité du traitement</label>
+                    <select id="upscaleQuality">
+                        <option value="fast">Rapide (2-3 secondes)</option>
+                        <option value="balanced" selected>Équilibré (5-8 secondes)</option>
+                        <option value="high">Haute qualité (10-15 secondes)</option>
+                    </select>
+                </div>
                 <div class="ai-option">
                     <div style="display: flex; align-items: center; gap: 10px;">
-                        <input type="checkbox" id="removeMetadata" checked>
-                        <label for="removeMetadata">Supprimer les métadonnées EXIF</label>
+                        <input type="checkbox" id="upscaleDenoise" checked>
+                        <label for="upscaleDenoise" style="margin: 0; font-weight: normal;">
+                            Réduction du bruit avant agrandissement
+                        </label>
                     </div>
+                </div>
+                <div class="ai-option">
+                    <div style="display: flex; align-items: center; gap: 10px;">
+                        <input type="checkbox" id="upscaleSharpen" checked>
+                        <label for="upscaleSharpen" style="margin: 0; font-weight: normal;">
+                            Amélioration de la netteté
+                        </label>
+                    </div>
+                </div>
+                <div style="background: #e6f7ff; padding: 15px; border-radius: 8px; margin-top: 15px;">
+                    <p style="margin: 0; color: #0066cc; font-size: 0.9em;">
+                        <strong>💡 Astuce:</strong> L'algorithme de super-résolution fonctionne mieux sur des images nettes et bien exposées.
+                        Pour de meilleurs résultats, améliorez d'abord votre image avec l'outil "Amélioration automatique".
+                    </p>
                 </div>
             `
         }
@@ -697,60 +745,135 @@ function openAITool(tool) {
     document.getElementById('modalTitle').textContent = config.title;
     document.getElementById('aiOptionsContainer').innerHTML = config.options;
     
-    document.getElementById('aiModal').style.display = 'block';
-    document.body.style.overflow = 'hidden';
-    
-    // Reset
+    // Réinitialiser la sélection
     selectedImageId = null;
     selectedImagePath = null;
-    document.getElementById('processBtn').disabled = true;
-    document.getElementById('processBtn').innerHTML = '🚀 Traiter l\'image';
-    document.getElementById('processingIndicator').style.display = 'none';
-    document.getElementById('resultContainer').style.display = 'none';
-    processedImageData = null;
-    
-    // Retirer la sélection de toutes les images
+    selectedImageWidth = null;
+    selectedImageHeight = null;
     document.querySelectorAll('.image-item').forEach(item => {
         item.classList.remove('selected');
     });
+    document.getElementById('processBtn').disabled = true;
+    document.getElementById('resultContainer').style.display = 'none';
+    
+    // Ajouter l'écouteur pour mettre à jour les infos d'upscale
+    if (tool === 'upscale') {
+        const scaleSelect = document.getElementById('scaleFactor');
+        if (scaleSelect) {
+            scaleSelect.addEventListener('change', updateUpscaleInfo);
+        }
+    }
+    
+    document.getElementById('aiModal').style.display = 'block';
+}
+
+function updateUpscaleInfo() {
+    if (!selectedImageWidth || !selectedImageHeight) return;
+    
+    const scaleFactor = parseFloat(document.getElementById('scaleFactor').value);
+    const newWidth = Math.round(selectedImageWidth * scaleFactor);
+    const newHeight = Math.round(selectedImageHeight * scaleFactor);
+    
+    const info = document.getElementById('scaleInfo');
+    if (info) {
+        info.innerHTML = `
+            <strong>Original:</strong> ${selectedImageWidth} × ${selectedImageHeight}px<br>
+            <strong>Après agrandissement:</strong> ${newWidth} × ${newHeight}px
+        `;
+    }
 }
 
 function closeAIModal() {
     document.getElementById('aiModal').style.display = 'none';
-    document.body.style.overflow = 'auto';
 }
 
 function selectImage(element) {
-    // Retirer la sélection précédente
+    // Désélectionner toutes les images
     document.querySelectorAll('.image-item').forEach(item => {
         item.classList.remove('selected');
     });
     
-    // Ajouter la sélection
+    // Sélectionner l'image cliquée
     element.classList.add('selected');
-    
     selectedImageId = element.dataset.id;
     selectedImagePath = element.dataset.path;
+    selectedImageWidth = parseInt(element.dataset.width);
+    selectedImageHeight = parseInt(element.dataset.height);
     
+    // Activer le bouton de traitement
     document.getElementById('processBtn').disabled = false;
+    
+    // Mettre à jour les infos d'upscale si nécessaire
+    if (currentTool === 'upscale') {
+        updateUpscaleInfo();
+    }
 }
 
 async function processAI() {
-    if (!selectedImageId || !currentTool) return;
+    if (!selectedImageId || !selectedImagePath) {
+        alert('Veuillez sélectionner une image');
+        return;
+    }
     
-    // Récupérer les options selon l'outil
-    const options = getToolOptions();
-    
-    // Afficher l'indicateur de traitement
+    // Cacher le bouton et afficher l'indicateur de traitement
     document.getElementById('processBtn').style.display = 'none';
     document.getElementById('processingIndicator').style.display = 'block';
     document.getElementById('resultContainer').style.display = 'none';
     
     try {
-        const response = await fetch(`api/ai-${currentTool}.php`, {
+        let apiEndpoint;
+        let options = {};
+        
+        switch (currentTool) {
+            case 'remove-bg':
+                apiEndpoint = 'api/ai-remove-bg.php';
+                options = {
+                    detectionMode: document.getElementById('detectionMode').value,
+                    edgeQuality: document.getElementById('edgeQuality').value
+                };
+                break;
+                
+            case 'enhance':
+                apiEndpoint = 'api/ai-enhance.php';
+                options = {
+                    intensity: parseInt(document.getElementById('enhanceIntensity').value)
+                };
+                break;
+                
+            case 'smart-crop':
+                apiEndpoint = 'api/ai-smart-crop.php';
+                options = {
+                    aspectRatio: document.getElementById('cropAspectRatio').value,
+                    detectionPriority: document.getElementById('detectionPriority').value
+                };
+                break;
+                
+            case 'optimize':
+                apiEndpoint = 'api/ai-optimize.php';
+                options = {
+                    quality: parseInt(document.getElementById('optimizeQuality').value),
+                    format: document.getElementById('outputFormat').value
+                };
+                break;
+                
+            case 'upscale':
+                apiEndpoint = 'api/ai-upscale.php';
+                options = {
+                    scale: parseFloat(document.getElementById('scaleFactor').value),
+                    quality: document.getElementById('upscaleQuality').value,
+                    denoise: document.getElementById('upscaleDenoise').checked,
+                    sharpen: document.getElementById('upscaleSharpen').checked
+                };
+                break;
+                
+            default:
+                throw new Error('Outil non reconnu');
+        }
+        
+        const response = await fetch(apiEndpoint, {
             method: 'POST',
             headers: {
-                'Content-Type': 'application/json',
+                'Content-Type': 'application/json'
             },
             body: JSON.stringify({
                 image_id: selectedImageId,
@@ -759,116 +882,59 @@ async function processAI() {
             })
         });
         
-        const data = await response.json();
+        const result = await response.json();
         
-        if (data.success) {
-            showResult(data);
+        if (result.success) {
+            // Afficher les résultats
+            document.getElementById('originalImage').src = selectedImagePath;
+            document.getElementById('processedImage').src = result.processed_image;
+            processedImageData = result;
+            
+            document.getElementById('processingIndicator').style.display = 'none';
+            document.getElementById('resultContainer').style.display = 'block';
         } else {
-            alert('❌ Erreur: ' + data.error);
-            resetModal();
+            throw new Error(result.error || 'Erreur de traitement');
         }
+        
     } catch (error) {
         console.error('Erreur:', error);
-        alert('❌ Erreur lors du traitement');
-        resetModal();
+        alert('Erreur lors du traitement: ' + error.message);
+        
+        document.getElementById('processingIndicator').style.display = 'none';
+        document.getElementById('processBtn').style.display = 'block';
     }
 }
 
-function getToolOptions() {
-    const options = {};
-    
-    switch(currentTool) {
-        case 'remove-bg':
-            options.detectionMode = document.getElementById('detectionMode')?.value || 'auto';
-            options.edgeQuality = document.getElementById('edgeQuality')?.value || 'medium';
-            break;
-            
-        case 'enhance':
-            options.intensity = parseInt(document.getElementById('enhanceIntensity')?.value || 70);
-            // ⭐ TOUTES les améliorations sont activées automatiquement
-            options.brightness = true;
-            options.contrast = true;
-            options.saturation = true;
-            options.sharpness = true; // ⭐ Netteté TOUJOURS activée
-            break;
-            
-        case 'smart-crop':
-            options.aspectRatio = document.getElementById('cropAspectRatio')?.value || 'auto';
-            options.detectionPriority = document.getElementById('detectionPriority')?.value || 'subject';
-            break;
-            
-        case 'optimize':
-            options.quality = parseInt(document.getElementById('optimizeQuality')?.value || 80);
-            options.format = document.getElementById('outputFormat')?.value || 'same';
-            options.removeMetadata = document.getElementById('removeMetadata')?.checked || false;
-            break;
-    }
-    
-    return options;
-}
-
-// ⭐ NOUVELLE FONCTION: Permet de continuer à modifier après avoir vu un résultat
 function continueEditing() {
-    // Cacher le résultat
     document.getElementById('resultContainer').style.display = 'none';
-    
-    // Réafficher le bouton de traitement
     document.getElementById('processBtn').style.display = 'block';
-    document.getElementById('processBtn').innerHTML = '🚀 Traiter l\'image';
-    document.getElementById('processBtn').disabled = false;
     
-    // Réinitialiser les données du résultat
-    processedImageData = null;
-    
-    console.log('✅ Prêt pour un nouveau traitement');
+    // Désélectionner l'image
+    document.querySelectorAll('.image-item').forEach(item => {
+        item.classList.remove('selected');
+    });
+    selectedImageId = null;
+    selectedImagePath = null;
+    document.getElementById('processBtn').disabled = true;
 }
 
-// ⭐ FONCTION MODIFIÉE: Affiche le résultat ET permet de continuer
-function showResult(data) {
-    document.getElementById('processingIndicator').style.display = 'none';
-    document.getElementById('resultContainer').style.display = 'block';
-    
-    document.getElementById('originalImage').src = selectedImagePath;
-    document.getElementById('processedImage').src = data.processed_image;
-    
-    processedImageData = data;
-    
-    // ⭐ IMPORTANT: Réafficher le bouton pour permettre d'appliquer un autre effet
-    document.getElementById('processBtn').style.display = 'block';
-    document.getElementById('processBtn').innerHTML = '🔄 Appliquer un autre effet';
-    document.getElementById('processBtn').disabled = false;
-}
-
-// ⭐ FONCTION MODIFIÉE: Réinitialisation complète
-function resetModal() {
-    document.getElementById('processBtn').style.display = 'block';
-    document.getElementById('processBtn').innerHTML = '🚀 Traiter l\'image';
-    document.getElementById('processBtn').disabled = selectedImageId === null;
-    document.getElementById('processingIndicator').style.display = 'none';
-    document.getElementById('resultContainer').style.display = 'none';
-    processedImageData = null;
-}
-
-// ⭐ FONCTION MODIFIÉE: Proposer de continuer après téléchargement
 function downloadResult() {
     if (!processedImageData) return;
     
     const link = document.createElement('a');
     link.href = processedImageData.processed_image;
-    link.download = processedImageData.filename || 'ai-processed.jpg';
+    link.download = processedImageData.filename;
     link.click();
-    
-    // ⭐ NOUVEAU: Proposer de continuer après téléchargement
-    setTimeout(() => {
-        if (confirm('📥 Image téléchargée !\n\nVoulez-vous continuer à appliquer d\'autres effets ?')) {
-            continueEditing();
-        }
-    }, 500);
 }
 
-// ⭐ FONCTION MODIFIÉE: Proposer de continuer après sauvegarde
 async function saveResult() {
     if (!processedImageData) return;
+    
+    // Désactiver le bouton pendant le traitement
+    const saveBtn = event.target;
+    const originalText = saveBtn.innerHTML;
+    saveBtn.disabled = true;
+    saveBtn.innerHTML = '⏳ Sauvegarde...';
     
     try {
         const response = await fetch('api/save-ai-result.php', {
@@ -886,24 +952,38 @@ async function saveResult() {
         const data = await response.json();
         
         if (data.success) {
-            // ⭐ NOUVEAU: Demander si on veut continuer ou fermer
-            if (confirm('✅ Image sauvegardée avec succès !\n\nVoulez-vous continuer à appliquer d\'autres effets ?')) {
-                continueEditing();
+            // Afficher un message de succès avec option de voir l'image
+            const viewImage = confirm(
+                data.message + '\n\n' +
+                'Voulez-vous voir l\'image dans votre bibliothèque ?'
+            );
+            
+            if (viewImage) {
+                // Rediriger vers le dashboard
+                window.location.href = 'dashboard.php';
             } else {
-                closeAIModal();
-                setTimeout(() => location.reload(), 500);
+                // Proposer de continuer
+                if (confirm('Voulez-vous continuer à appliquer d\'autres effets ?')) {
+                    continueEditing();
+                } else {
+                    closeAIModal();
+                }
             }
         } else {
-            alert('❌ Erreur lors de la sauvegarde: ' + data.error);
+            throw new Error(data.error || 'Erreur de sauvegarde');
         }
     } catch (error) {
-        console.error('Erreur:', error);
-        alert('❌ Erreur lors de la sauvegarde');
+        console.error('Erreur de sauvegarde:', error);
+        alert('❌ Erreur lors de la sauvegarde: ' + error.message);
+        
+        // Réactiver le bouton
+        saveBtn.disabled = false;
+        saveBtn.innerHTML = originalText;
     }
 }
 
-// Fermer le modal en cliquant à l'extérieur
-document.getElementById('aiModal').addEventListener('click', function(e) {
+// Fermer le modal en cliquant en dehors
+document.getElementById('aiModal')?.addEventListener('click', function(e) {
     if (e.target === this) {
         closeAIModal();
     }

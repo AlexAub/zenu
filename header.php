@@ -147,9 +147,12 @@ if (in_array($currentPage, ['convertisseur-prive', 'convertisseur-prive-ameliore
                     <a href="upload.php" class="nav-link <?= $currentPage === 'upload' ? 'active' : '' ?>">
                         📤 Upload
                     </a>
-					<a href="editeur.php" class="nav-link" <?= $currentPage === 'editeur' ? 'active' : '' ?>">
-						🎨 Éditeur
-					</a>
+                    <a href="editeur.php" class="nav-link <?= $currentPage === 'editeur' ? 'active' : '' ?>">
+                        🎨 Éditeur
+                    </a>
+                    <a href="ai-tools.php" class="nav-link <?= $currentPage === 'ai-tools' ? 'active' : '' ?>">
+                        🤖 Outils IA
+                    </a>
                     <a href="trash.php" class="nav-link <?= $currentPage === 'trash' ? 'active' : '' ?>">
                         🗑️ Corbeille
                     </a>
