@@ -745,15 +745,24 @@ function openAITool(tool) {
     document.getElementById('modalTitle').textContent = config.title;
     document.getElementById('aiOptionsContainer').innerHTML = config.options;
     
-    // Réinitialiser la sélection
+    // Réinitialiser TOUTES les variables de sélection
     selectedImageId = null;
     selectedImagePath = null;
     selectedImageWidth = null;
     selectedImageHeight = null;
+    processedImageData = null;
+    
+    // Réinitialiser l'interface
     document.querySelectorAll('.image-item').forEach(item => {
         item.classList.remove('selected');
     });
-    document.getElementById('processBtn').disabled = true;
+    
+    const processBtn = document.getElementById('processBtn');
+    processBtn.disabled = true;
+    processBtn.innerHTML = '🚀 Traiter l\'image';
+    processBtn.style.display = ''; // Enlever le style inline au lieu de mettre 'block'
+    
+    document.getElementById('processingIndicator').style.display = 'none';
     document.getElementById('resultContainer').style.display = 'none';
     
     // Ajouter l'écouteur pour mettre à jour les infos d'upscale
@@ -765,6 +774,7 @@ function openAITool(tool) {
     }
     
     document.getElementById('aiModal').style.display = 'block';
+    document.body.style.overflow = 'hidden';
 }
 
 function updateUpscaleInfo() {
@@ -785,6 +795,29 @@ function updateUpscaleInfo() {
 
 function closeAIModal() {
     document.getElementById('aiModal').style.display = 'none';
+    document.body.style.overflow = 'auto';
+    
+    // Réinitialiser TOUTES les variables
+    selectedImageId = null;
+    selectedImagePath = null;
+    selectedImageWidth = null;
+    selectedImageHeight = null;
+    currentTool = null;
+    processedImageData = null;
+    
+    // Réinitialiser l'interface
+    const processBtn = document.getElementById('processBtn');
+    processBtn.disabled = true;
+    processBtn.innerHTML = '🚀 Traiter l\'image';
+    processBtn.style.display = ''; // Enlever le style inline
+    
+    document.getElementById('processingIndicator').style.display = 'none';
+    document.getElementById('resultContainer').style.display = 'none';
+    
+    // Désélectionner toutes les images
+    document.querySelectorAll('.image-item').forEach(item => {
+        item.classList.remove('selected');
+    });
 }
 
 function selectImage(element) {
@@ -801,7 +834,17 @@ function selectImage(element) {
     selectedImageHeight = parseInt(element.dataset.height);
     
     // Activer le bouton de traitement
-    document.getElementById('processBtn').disabled = false;
+    const processBtn = document.getElementById('processBtn');
+    processBtn.disabled = false;
+    
+    // Si le résultat est visible, on garde "Appliquer un autre effet"
+    // Sinon on remet "Traiter l'image"
+    const resultContainer = document.getElementById('resultContainer');
+    const resultVisible = resultContainer.style.display === 'block';
+    
+    if (!resultVisible) {
+        processBtn.innerHTML = '🚀 Traiter l\'image';
+    }
     
     // Mettre à jour les infos d'upscale si nécessaire
     if (currentTool === 'upscale') {
@@ -890,8 +933,16 @@ async function processAI() {
             document.getElementById('processedImage').src = result.processed_image;
             processedImageData = result;
             
+            // Cacher l'indicateur de traitement
             document.getElementById('processingIndicator').style.display = 'none';
+            
+            // Afficher le résultat
             document.getElementById('resultContainer').style.display = 'block';
+            
+            // Réafficher le bouton pour permettre de refaire un traitement
+            document.getElementById('processBtn').style.display = ''; // Enlever le style inline
+            document.getElementById('processBtn').innerHTML = '🔄 Appliquer un autre effet';
+            document.getElementById('processBtn').disabled = false;
         } else {
             throw new Error(result.error || 'Erreur de traitement');
         }
@@ -901,21 +952,38 @@ async function processAI() {
         alert('Erreur lors du traitement: ' + error.message);
         
         document.getElementById('processingIndicator').style.display = 'none';
-        document.getElementById('processBtn').style.display = 'block';
+        document.getElementById('processBtn').style.display = ''; // Enlever le style inline
     }
 }
 
 function continueEditing() {
+    // Cacher le résultat
     document.getElementById('resultContainer').style.display = 'none';
-    document.getElementById('processBtn').style.display = 'block';
     
-    // Désélectionner l'image
+    const processBtn = document.getElementById('processBtn');
+    processBtn.style.display = ''; // Enlever le style inline
+    processBtn.innerHTML = '🚀 Traiter l\'image';
+    
+    // Réinitialiser les variables de sélection
+    selectedImageId = null;
+    selectedImagePath = null;
+    selectedImageWidth = null;
+    selectedImageHeight = null;
+    processedImageData = null;
+    
+    // Désactiver le bouton jusqu'à nouvelle sélection
+    processBtn.disabled = true;
+    
+    // Désélectionner toutes les images visuellement
     document.querySelectorAll('.image-item').forEach(item => {
         item.classList.remove('selected');
     });
-    selectedImageId = null;
-    selectedImagePath = null;
-    document.getElementById('processBtn').disabled = true;
+    
+    // Réinitialiser les infos d'upscaling si présentes
+    const scaleInfo = document.getElementById('scaleInfo');
+    if (scaleInfo) {
+        scaleInfo.innerHTML = 'Sélectionnez une image pour voir les dimensions finales';
+    }
 }
 
 function downloadResult() {
